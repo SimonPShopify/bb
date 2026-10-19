@@ -636,7 +636,7 @@ describe("PluginPendingInteractionComposer", () => {
     it("shows full copy and cancels the request on the thread's own page", async () => {
       const cancel = vi
         .spyOn(sdk.threads.interactions, "cancel")
-        .mockResolvedValue(undefined);
+        .mockReturnValue(new Promise(() => {}));
       await renderSecretsForm(null);
       expect(
         screen.getByText("OpenRouter API key").getAttribute("title"),
