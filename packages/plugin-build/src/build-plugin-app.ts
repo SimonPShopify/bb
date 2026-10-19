@@ -68,7 +68,7 @@ export function sharedUiRuntimeModuleFor(
   return sharedUiRuntimeModuleAt(resolve(dirname(importer), importPath));
 }
 
-export function sharedUiRuntimeModuleAt(resolvedPath: string): string | null {
+function sharedUiRuntimeModuleAt(resolvedPath: string): string | null {
   const normalized = resolvedPath
     .replace(/\\/g, "/")
     .replace(/\.(?:tsx?|jsx?)$/, "");
