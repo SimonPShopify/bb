@@ -621,12 +621,13 @@ describe("PluginPendingInteractionComposer", () => {
       expect(screen.getByText("OpenRouter API key").getAttribute("title")).toBe(
         "OpenRouter API key",
       );
-      expect(
-        screen
-          .getByText(secretRequest.data.destination.path)
-          .closest("p")
-          ?.getAttribute("title"),
-      ).toBe(secretRequest.data.destination.path);
+      const destination = screen.getByTitle(
+        secretRequest.data.destination.path,
+      );
+      expect(destination.getAttribute("dir")).toBe("rtl");
+      expect(destination.textContent).toContain(
+        "~/projects/droplet-monitor/.env",
+      );
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(close).toHaveBeenCalledOnce();
       expect(cancel).not.toHaveBeenCalled();

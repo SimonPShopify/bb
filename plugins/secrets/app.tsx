@@ -6,7 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, formatHomePathForDisplay } from "@/lib/utils";
 import { useQuestionFormHost } from "@/components/ui/question-form-host";
 import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import ViewIcon from "@hugeicons/core-free-icons/ViewIcon";
@@ -114,23 +114,25 @@ function SecretRequestInteraction({
             {payload.purpose}
           </p>
         ) : null}
-        <p
-          title={compact ? payload.destination.path : undefined}
-          className={cn(
-            "min-w-0 text-xs text-muted-foreground",
-            compact && "truncate",
-          )}
-        >
-          Secrets will be written directly to{" "}
-          <code
-            className={cn(
-              "rounded bg-surface-raised font-mono text-foreground",
-              compact ? "px-1 py-px" : "break-all px-1.5 py-0.5",
-            )}
-          >
-            {payload.destination.path}
-          </code>
-        </p>
+        {compact ? (
+          <p className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
+            <span className="shrink-0">Writes to</span>
+            <code
+              dir="rtl"
+              title={payload.destination.path}
+              className="block w-min min-w-0 max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
+            >
+              {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
+            </code>
+          </p>
+        ) : (
+          <p className="min-w-0 text-xs text-muted-foreground">
+            Secrets will be written directly to{" "}
+            <code className="break-all rounded bg-surface-raised px-1.5 py-0.5 font-mono text-foreground">
+              {payload.destination.path}
+            </code>
+          </p>
+        )}
       </div>
 
       <div className={compact ? "space-y-2" : "space-y-3.5"}>
