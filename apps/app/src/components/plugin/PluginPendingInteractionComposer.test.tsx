@@ -618,9 +618,9 @@ describe("PluginPendingInteractionComposer", () => {
       const cancel = vi.spyOn(sdk.threads.interactions, "cancel");
       const close = vi.fn();
       await renderSecretsForm(close);
-      expect(
-        screen.getByText("OpenRouter API key").getAttribute("title"),
-      ).toBe("OpenRouter API key");
+      expect(screen.getByText("OpenRouter API key").getAttribute("title")).toBe(
+        "OpenRouter API key",
+      );
       expect(
         screen
           .getByText(secretRequest.data.destination.path)
