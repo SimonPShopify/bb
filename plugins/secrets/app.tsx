@@ -105,20 +105,27 @@ function SecretRequestInteraction({
       <div className={compact ? "space-y-1" : "space-y-2"}>
         {payload.purpose ? (
           <p
+            title={compact ? payload.purpose : undefined}
             className={cn(
               "text-pretty text-foreground",
-              compact ? "text-xs" : "text-sm leading-relaxed",
+              compact ? "line-clamp-2 text-xs" : "text-sm leading-relaxed",
             )}
           >
             {payload.purpose}
           </p>
         ) : null}
-        <p className="min-w-0 text-xs text-muted-foreground">
+        <p
+          title={compact ? payload.destination.path : undefined}
+          className={cn(
+            "min-w-0 text-xs text-muted-foreground",
+            compact && "truncate",
+          )}
+        >
           Secrets will be written directly to{" "}
           <code
             className={cn(
-              "break-all rounded bg-surface-raised font-mono text-foreground",
-              compact ? "px-1 py-px" : "px-1.5 py-0.5",
+              "rounded bg-surface-raised font-mono text-foreground",
+              compact ? "px-1 py-px" : "break-all px-1.5 py-0.5",
             )}
           >
             {payload.destination.path}
@@ -135,7 +142,13 @@ function SecretRequestInteraction({
               key={field.name}
               className={cn("min-w-0", compact ? "space-y-1" : "space-y-1.5")}
             >
-              <div className="space-y-0.5">
+              <div
+                className={
+                  compact
+                    ? "flex min-w-0 flex-wrap items-baseline gap-x-2"
+                    : "space-y-0.5"
+                }
+              >
                 <Label
                   htmlFor={inputId}
                   className="font-mono text-xs font-semibold text-foreground"
@@ -144,7 +157,15 @@ function SecretRequestInteraction({
                   {field.name}
                 </Label>
                 {field.description ? (
-                  <p className="text-xs leading-snug text-muted-foreground">
+                  <p
+                    title={compact ? field.description : undefined}
+                    className={cn(
+                      "text-xs text-muted-foreground",
+                      compact
+                        ? "min-w-0 grow basis-24 truncate"
+                        : "leading-snug",
+                    )}
+                  >
                     {field.description}
                   </p>
                 ) : null}
@@ -169,7 +190,9 @@ function SecretRequestInteraction({
                   disabled={busy}
                   className={cn(
                     "bg-card font-mono",
-                    compact ? "h-7 pr-9 text-xs" : "pr-11",
+                    compact
+                      ? "h-7 pr-9 text-xs max-md:pointer-coarse:h-8"
+                      : "pr-11",
                   )}
                 />
                 <Button

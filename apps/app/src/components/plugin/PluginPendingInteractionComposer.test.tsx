@@ -48,20 +48,18 @@ vi.mock("@/views/thread-detail/PaneContext", () => ({
   useOptionalPaneContext: () => pane,
 }));
 
-const PI_APP_MODULE = resolve(
-  __dirname,
-  "../../../../../plugins/provider-pi/app.tsx",
-);
-
-async function loadPiPendingInteractions(): Promise<
-  NonNullable<PluginRegistrationSet["pendingInteractions"]>
-> {
+async function loadPendingInteractions(
+  pluginDir: string,
+): Promise<NonNullable<PluginRegistrationSet["pendingInteractions"]>> {
   installPluginRuntime();
   const module: { default?: unknown } = await import(
-    /* @vite-ignore */ PI_APP_MODULE
+    /* @vite-ignore */ resolve(
+      __dirname,
+      `../../../../../plugins/${pluginDir}/app.tsx`,
+    )
   );
   if (!isPluginAppDefinition(module.default)) {
-    throw new Error("provider-pi's app.tsx exports no plugin app definition");
+    throw new Error(`${pluginDir}'s app.tsx exports no plugin app definition`);
   }
   return collectPluginAppRegistrations(module.default).pendingInteractions;
 }
@@ -270,7 +268,7 @@ describe("PluginPendingInteractionComposer", () => {
   it("submits a numbered pi selection through the shared question form", async () => {
     setPluginSlotRegistrations(
       "provider-pi",
-      registrations(await loadPiPendingInteractions()),
+      registrations(await loadPendingInteractions("provider-pi")),
     );
     const data = {
       requestId: "ui-1",
@@ -570,6 +568,84 @@ describe("PluginPendingInteractionComposer", () => {
     ).toBeDefined();
     expect(screen.getByRole("button", { name: "Stop turn" })).toBeDefined();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+  });
+
+  describe("Secrets form", () => {
+    const secretRequest = {
+      pluginId: "secrets",
+      rendererId: "secret-request",
+      title: "Add secrets",
+      data: {
+        purpose: "The droplet monitor needs an OpenRouter key for summaries.",
+        destination: {
+          kind: "dotenv",
+          path: "/home/agent/projects/droplet-monitor/.env",
+        },
+        fields: [
+          { name: "OPENROUTER_API_KEY", description: "OpenRouter API key" },
+        ],
+      },
+    };
+
+    async function renderSecretsForm(close: (() => void) | null) {
+      setPluginSlotRegistrations(
+        "secrets",
+        registrations(await loadPendingInteractions("secrets")),
+      );
+      markPluginFrontendsSettled();
+      const composer = (
+        <PluginPendingInteractionComposer
+          collapsedByDefault={false}
+          interaction={interaction}
+          request={secretRequest}
+          origin="plugin"
+        />
+      );
+      renderComposer(
+        close === null ? (
+          composer
+        ) : (
+          <InlinePendingInteractionContext.Provider
+            value={{ promptShownAbove: "Add secrets", close }}
+          >
+            {composer}
+          </InlinePendingInteractionContext.Provider>
+        ),
+      );
+    }
+
+    it("collapses long copy to single lines inside the child threads banner", async () => {
+      const cancel = vi.spyOn(sdk.threads.interactions, "cancel");
+      const close = vi.fn();
+      await renderSecretsForm(close);
+      expect(
+        screen.getByText("OpenRouter API key").getAttribute("title"),
+      ).toBe("OpenRouter API key");
+      expect(
+        screen
+          .getByText(secretRequest.data.destination.path)
+          .closest("p")
+          ?.getAttribute("title"),
+      ).toBe(secretRequest.data.destination.path);
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(close).toHaveBeenCalledOnce();
+      expect(cancel).not.toHaveBeenCalled();
+    });
+
+    it("shows full copy and cancels the request on the thread's own page", async () => {
+      const cancel = vi
+        .spyOn(sdk.threads.interactions, "cancel")
+        .mockResolvedValue(undefined);
+      await renderSecretsForm(null);
+      expect(
+        screen.getByText("OpenRouter API key").getAttribute("title"),
+      ).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(cancel).toHaveBeenCalledWith({
+        interactionId: interaction.id,
+        threadId: interaction.threadId,
+      });
+    });
   });
 
   it("keeps cancel available when the renderer crashes", () => {
