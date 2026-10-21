@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as UninstallRouteImport } from "./routes/uninstall";
 import { Route as SitemapDotxmlRouteImport } from "./routes/sitemap[.]xml";
 import { Route as RobotsDottxtRouteImport } from "./routes/robots[.]txt";
-import { Route as ReviewersRouteImport } from "./routes/reviewers";
 import { Route as PrivacyRouteImport } from "./routes/privacy";
 import { Route as PluginGuideRouteImport } from "./routes/plugin-guide";
 import { Route as MarketplaceRouteImport } from "./routes/marketplace_";
@@ -36,6 +35,7 @@ import { Route as CompareSlugRouteImport } from "./routes/compare.$slug";
 import { Route as BlogSlugRouteImport } from "./routes/blog_.$slug";
 import { Route as ApiSubscribeRouteImport } from "./routes/api.subscribe";
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from "./routes/[.]well-known.oauth-authorization-server";
+import { Route as DotwellKnownBbConnectGateKeysDotjsonRouteImport } from "./routes/[.]well-known.bb-connect-gate-keys[.]json";
 import { Route as DotwellKnownAssetlinksDotjsonRouteImport } from "./routes/[.]well-known.assetlinks[.]json";
 import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from "./routes/[.]well-known.apple-app-site-association";
 import { Route as MarketplaceAuthorGithubRouteImport } from "./routes/marketplace_.author.$github";
@@ -69,11 +69,6 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
   id: "/robots.txt",
   path: "/robots.txt",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ReviewersRoute = ReviewersRouteImport.update({
-  id: "/reviewers",
-  path: "/reviewers",
   getParentRoute: () => rootRouteImport,
 } as any);
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -192,6 +187,12 @@ const DotwellKnownOauthAuthorizationServerRoute =
     path: "/.well-known/oauth-authorization-server",
     getParentRoute: () => rootRouteImport,
   } as any);
+const DotwellKnownBbConnectGateKeysDotjsonRoute =
+  DotwellKnownBbConnectGateKeysDotjsonRouteImport.update({
+    id: "/.well-known/bb-connect-gate-keys.json",
+    path: "/.well-known/bb-connect-gate-keys.json",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const DotwellKnownAssetlinksDotjsonRoute =
   DotwellKnownAssetlinksDotjsonRouteImport.update({
     id: "/.well-known/assetlinks.json",
@@ -303,12 +304,12 @@ export interface FileRoutesByFullPath {
   "/marketplace": typeof MarketplaceRouteWithChildren;
   "/plugin-guide": typeof PluginGuideRoute;
   "/privacy": typeof PrivacyRoute;
-  "/reviewers": typeof ReviewersRoute;
   "/robots.txt": typeof RobotsDottxtRoute;
   "/sitemap.xml": typeof SitemapDotxmlRoute;
   "/uninstall": typeof UninstallRoute;
   "/.well-known/apple-app-site-association": typeof DotwellKnownAppleAppSiteAssociationRoute;
   "/.well-known/assetlinks.json": typeof DotwellKnownAssetlinksDotjsonRoute;
+  "/.well-known/bb-connect-gate-keys.json": typeof DotwellKnownBbConnectGateKeysDotjsonRoute;
   "/.well-known/oauth-authorization-server": typeof DotwellKnownOauthAuthorizationServerRoute;
   "/api/subscribe": typeof ApiSubscribeRoute;
   "/blog/$slug": typeof BlogSlugRoute;
@@ -351,12 +352,12 @@ export interface FileRoutesByTo {
   "/marketplace": typeof MarketplaceRouteWithChildren;
   "/plugin-guide": typeof PluginGuideRoute;
   "/privacy": typeof PrivacyRoute;
-  "/reviewers": typeof ReviewersRoute;
   "/robots.txt": typeof RobotsDottxtRoute;
   "/sitemap.xml": typeof SitemapDotxmlRoute;
   "/uninstall": typeof UninstallRoute;
   "/.well-known/apple-app-site-association": typeof DotwellKnownAppleAppSiteAssociationRoute;
   "/.well-known/assetlinks.json": typeof DotwellKnownAssetlinksDotjsonRoute;
+  "/.well-known/bb-connect-gate-keys.json": typeof DotwellKnownBbConnectGateKeysDotjsonRoute;
   "/.well-known/oauth-authorization-server": typeof DotwellKnownOauthAuthorizationServerRoute;
   "/api/subscribe": typeof ApiSubscribeRoute;
   "/blog/$slug": typeof BlogSlugRoute;
@@ -400,12 +401,12 @@ export interface FileRoutesById {
   "/marketplace_": typeof MarketplaceRouteWithChildren;
   "/plugin-guide": typeof PluginGuideRoute;
   "/privacy": typeof PrivacyRoute;
-  "/reviewers": typeof ReviewersRoute;
   "/robots.txt": typeof RobotsDottxtRoute;
   "/sitemap.xml": typeof SitemapDotxmlRoute;
   "/uninstall": typeof UninstallRoute;
   "/.well-known/apple-app-site-association": typeof DotwellKnownAppleAppSiteAssociationRoute;
   "/.well-known/assetlinks.json": typeof DotwellKnownAssetlinksDotjsonRoute;
+  "/.well-known/bb-connect-gate-keys.json": typeof DotwellKnownBbConnectGateKeysDotjsonRoute;
   "/.well-known/oauth-authorization-server": typeof DotwellKnownOauthAuthorizationServerRoute;
   "/api/subscribe": typeof ApiSubscribeRoute;
   "/blog_/$slug": typeof BlogSlugRoute;
@@ -450,12 +451,12 @@ export interface FileRouteTypes {
     | "/marketplace"
     | "/plugin-guide"
     | "/privacy"
-    | "/reviewers"
     | "/robots.txt"
     | "/sitemap.xml"
     | "/uninstall"
     | "/.well-known/apple-app-site-association"
     | "/.well-known/assetlinks.json"
+    | "/.well-known/bb-connect-gate-keys.json"
     | "/.well-known/oauth-authorization-server"
     | "/api/subscribe"
     | "/blog/$slug"
@@ -498,12 +499,12 @@ export interface FileRouteTypes {
     | "/marketplace"
     | "/plugin-guide"
     | "/privacy"
-    | "/reviewers"
     | "/robots.txt"
     | "/sitemap.xml"
     | "/uninstall"
     | "/.well-known/apple-app-site-association"
     | "/.well-known/assetlinks.json"
+    | "/.well-known/bb-connect-gate-keys.json"
     | "/.well-known/oauth-authorization-server"
     | "/api/subscribe"
     | "/blog/$slug"
@@ -546,12 +547,12 @@ export interface FileRouteTypes {
     | "/marketplace_"
     | "/plugin-guide"
     | "/privacy"
-    | "/reviewers"
     | "/robots.txt"
     | "/sitemap.xml"
     | "/uninstall"
     | "/.well-known/apple-app-site-association"
     | "/.well-known/assetlinks.json"
+    | "/.well-known/bb-connect-gate-keys.json"
     | "/.well-known/oauth-authorization-server"
     | "/api/subscribe"
     | "/blog_/$slug"
@@ -595,12 +596,12 @@ export interface RootRouteChildren {
   MarketplaceRoute: typeof MarketplaceRouteWithChildren;
   PluginGuideRoute: typeof PluginGuideRoute;
   PrivacyRoute: typeof PrivacyRoute;
-  ReviewersRoute: typeof ReviewersRoute;
   RobotsDottxtRoute: typeof RobotsDottxtRoute;
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute;
   UninstallRoute: typeof UninstallRoute;
   DotwellKnownAppleAppSiteAssociationRoute: typeof DotwellKnownAppleAppSiteAssociationRoute;
   DotwellKnownAssetlinksDotjsonRoute: typeof DotwellKnownAssetlinksDotjsonRoute;
+  DotwellKnownBbConnectGateKeysDotjsonRoute: typeof DotwellKnownBbConnectGateKeysDotjsonRoute;
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute;
   ApiSubscribeRoute: typeof ApiSubscribeRoute;
   BlogSlugRoute: typeof BlogSlugRoute;
@@ -652,13 +653,6 @@ declare module "@tanstack/react-router" {
       path: "/robots.txt";
       fullPath: "/robots.txt";
       preLoaderRoute: typeof RobotsDottxtRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/reviewers": {
-      id: "/reviewers";
-      path: "/reviewers";
-      fullPath: "/reviewers";
-      preLoaderRoute: typeof ReviewersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/privacy": {
@@ -822,6 +816,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/.well-known/bb-connect-gate-keys.json": {
+      id: "/.well-known/bb-connect-gate-keys.json";
+      path: "/.well-known/bb-connect-gate-keys.json";
+      fullPath: "/.well-known/bb-connect-gate-keys.json";
+      preLoaderRoute: typeof DotwellKnownBbConnectGateKeysDotjsonRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/.well-known/assetlinks.json": {
       id: "/.well-known/assetlinks.json";
       path: "/.well-known/assetlinks.json";
@@ -983,13 +984,14 @@ const rootRouteChildren: RootRouteChildren = {
   MarketplaceRoute: MarketplaceRouteWithChildren,
   PluginGuideRoute: PluginGuideRoute,
   PrivacyRoute: PrivacyRoute,
-  ReviewersRoute: ReviewersRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UninstallRoute: UninstallRoute,
   DotwellKnownAppleAppSiteAssociationRoute:
     DotwellKnownAppleAppSiteAssociationRoute,
   DotwellKnownAssetlinksDotjsonRoute: DotwellKnownAssetlinksDotjsonRoute,
+  DotwellKnownBbConnectGateKeysDotjsonRoute:
+    DotwellKnownBbConnectGateKeysDotjsonRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
   ApiSubscribeRoute: ApiSubscribeRoute,

@@ -1,4 +1,14 @@
-export const HOST_DAEMON_PROTOCOL_VERSION = 247 as const;
+export const HOST_DAEMON_PROTOCOL_VERSION = 248 as const;
+
+export const HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS: readonly number[] = [
+  HOST_DAEMON_PROTOCOL_VERSION,
+];
+
+export function isCompatibleHostDaemonProtocolVersion(
+  protocolVersion: number,
+): boolean {
+  return HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS.includes(protocolVersion);
+}
 
 export const HOST_ARTIFACT_MAX_BYTES = 256 * 1024 * 1024;
 
