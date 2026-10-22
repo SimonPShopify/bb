@@ -642,9 +642,11 @@ describe("PluginPendingInteractionComposer", () => {
         name: `Saves to ${secretRequest.data.destination.path}`,
       });
       expect(destination.getAttribute("aria-expanded")).toBe("false");
-      expect(screen.getByText(".env").parentElement?.className).toContain(
-        "font-medium",
+      const fileName = screen.getByText(".env");
+      expect(fileName.className.split(" ")).toEqual(
+        expect.arrayContaining(["truncate", "font-medium"]),
       );
+      expect(fileName.parentElement).toBe(destination);
       expect(destination.textContent).toBe("Saves to.envin…/droplet-monitor");
       expect(screen.queryByText(/Writes to/)).toBeNull();
       fireEvent.click(destination);

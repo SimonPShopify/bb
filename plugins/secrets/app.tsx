@@ -128,33 +128,35 @@ function SecretRequestInteraction({
         title={payload.destination.path}
         onClick={() => setPathExpanded((expanded) => !expanded)}
         className={cn(
-          "flex w-full min-w-0 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "flex w-full min-w-0 items-center rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           textInset,
           payload.purpose && (compact ? "mt-2" : "mt-3"),
         )}
       >
         <HugeiconsIcon
           icon={File01Icon}
-          className="size-3.5 shrink-0"
+          className="mr-1.5 size-3.5 shrink-0"
           aria-hidden="true"
         />
-        <span className="shrink-0">Saves to</span>
+        <span className="mr-1.5 shrink-0">Saves to</span>
         {pathExpanded ? (
           <span className="max-h-12 min-w-0 overflow-y-auto break-all text-foreground">
             {payload.destination.path}
           </span>
         ) : (
           <>
-            <span className="flex font-medium text-foreground">
-              <span className="min-w-[1.5ch] truncate">{destination.stem}</span>
-              {destination.extension ? (
-                <span className="shrink-0">{destination.extension}</span>
-              ) : null}
+            <span className="min-w-[1.5ch] truncate font-medium text-foreground">
+              {destination.stem}
             </span>
+            {destination.extension ? (
+              <span className="shrink-0 font-medium text-foreground">
+                {destination.extension}
+              </span>
+            ) : null}
             {destinationFolder === null ? null : (
               <>
-                <span className="shrink-0">in</span>
-                <span className="min-w-0 max-w-[40%] shrink-[0.1] truncate">
+                <span className="mx-1.5 shrink-0">in</span>
+                <span className="min-w-0 max-w-[40%] shrink-[0.25] truncate">
                   {destinationFolder}
                 </span>
               </>
