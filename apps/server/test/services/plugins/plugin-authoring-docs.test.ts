@@ -155,7 +155,7 @@ const PUBLIC_PLUGIN_SDK_EXPORT_NAMES = [
       join(REPO_ROOT, "packages/plugin-sdk/bundled-types", filename),
       "utf8",
     ),
-  ),
+  ).filter((name) => !name.startsWith("InternalDoNotUse")),
 );
 
 const BB_PLUGIN_API_KEYS = [

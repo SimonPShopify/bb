@@ -190,6 +190,7 @@ const representativeWorkspaceStatus = makeWorkspaceStatus({
     baseRef: "main",
     aheadCount: INFO_COMMITS.length,
     behindCount: 0,
+    squashMergeCheckComplete: true,
     hasCommittedUnmergedChanges: true,
     commits: INFO_COMMITS,
     insertions: 86,

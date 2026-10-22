@@ -902,6 +902,76 @@ Docs: `backend-foundation.md`.
 connect URL should supply this value when `BB_APP_URL` is empty. Confirm that
 one public URL has clear behavior when a server has several access paths.
 
+## `bb.server.internal_DO_NOT_USE_openTunnelIngress`
+
+Internal to bb's own connect plugins (`connect`, `bb--connect-next`): the `internal_DO_NOT_USE_` prefix marks members that are not part of the plugin API, are not offered to third-party plugins, and may change or disappear in any release.
+
+`internal_DO_NOT_USE_openTunnelIngress({ audience })` resolves to
+`{ baseUrl, close() }` for a listener on `127.0.0.1` with an ephemeral port.
+Every HTTP request and WebSocket upgrade on it must carry an
+`x-bb-gate-assertion` (`@bb/tunnel-contract/next`) signed by the bb connect
+next gate for `audience`, the request method and the exact path and query;
+anything else gets a 401 JSON body `{ code: "gate_assertion_invalid", reason }`
+and never reaches the app. A verified request loses every inbound
+`x-bb-gate-*` header, gets `x-bb-gate-auth` (and the machine id or OAuth
+grant headers) from the claims only, has Host and the public Origin rewritten
+to the server's loopback origin, and is dispatched in-process into the same
+app as `loopbackBaseUrl` (HTTP, `/ws`, plugin WebSockets). The ingress never
+counts as a loopback caller. Gate keys come from `BB_CONNECT_GATE_KEYS_URL`.
+Opening an audience again shares its listener; it stops, and drops its
+WebSockets, when every handle closes. Handles close when the plugin is
+disabled or unloaded.
+
+Core callers: none. The Cloudflare bb connect path still replays requests to
+the main loopback port; the `connect-next` plugin is the only caller.
+
+Docs: `backend-foundation.md`; the request rules are in [connect-next.md](connect-next.md) (Server ingress).
+
+**Audit before stabilizing.** Decide whether the Cloudflare tunnel client
+moves onto the same ingress so core and both connect plugins share one path.
+Decide whether `target` (share ports) belongs here or stays refused. Confirm
+the audience should stay free-form or become a typed server id, and whether a
+plugin may open audiences for servers other than its own.
+
+## `bb.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
+
+Internal to bb's own connect plugins (`connect`, `bb--connect-next`): the `internal_DO_NOT_USE_` prefix marks members that are not part of the plugin API, are not offered to third-party plugins, and may change or disappear in any release.
+
+`internal_DO_NOT_USE_setNextTunnels(config | null)` turns bb connect next machine
+tunnels on (an `InternalDoNotUsePluginNextTunnelConfig`,
+`{ domain, server: { protocol, host, port } }`) or off. The server keeps one
+config owned by the calling plugin (another plugin's non-null call throws
+while it is set; a null call from a non-owner is a no-op), clears it when the
+owner is disabled or uninstalled, and sends it as `connect-next.replace` (and
+`connectNext` in the session-open response) to every connected daemon that
+holds a bb connect machine credential and opened its session with protocol
+247 or newer. A protocol-246 daemon is still accepted and only gets its
+Cloudflare shares. Each daemon runs frpc with one proxy per port declared
+through `declareSharedPorts` at `<label>--<port>.<domain>` while it shares at
+least one port, and refuses a config whose domain is not its trusted
+enrollment's base domain or `next.<base domain>`, or whose tunnel host is not
+`tunnel.<domain>`, or that is not `wss` for an https enrollment, so a plugin
+cannot send the machine credential elsewhere.
+`internal_DO_NOT_USE_nextTunnelStatuses()` returns each connected daemon's last
+`connect-next.status` report as `InternalDoNotUsePluginHostNextTunnelStatus`
+(dropped when its session ends), and
+`internal_DO_NOT_USE_onNextTunnelStatusChange(listener)` calls `listener` on any
+change and returns an unsubscribe function that disposal also runs.
+
+Core callers: none. Product policy (on or off, which domain) belongs to the
+`connect-next` plugin, which calls all three; core's Cloudflare machine tunnel
+needs no config because the daemon derives its gate from its enrollment.
+
+Docs: `backend-foundation.md`; the wire and daemon behavior are in
+[connect-next.md](connect-next.md) (Machine tunnels).
+
+**Audit before stabilizing.** Decide whether the config should be per host
+instead of global, whether the status should be pushed through `bb.realtime`
+instead of a listener, and whether the compatibility window for protocol 246
+can close (then `HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS` goes back to the
+current version only). Decide whether the Cloudflare machine tunnel should
+move onto the same frpc runner once next replaces it.
+
 ## Bridge record mode (`experimental_recordProviderChildIo` and `experimental_isProviderBridgeRecording`)
 
 **Kept experimental (2026-08-22).** The recording entry shape is a de-facto
@@ -2504,12 +2574,31 @@ mention rebasing, and callback failure isolation across every composer host.
 
 ## `useComposer().submit` and dispatch `experimental_submission`
 
-`submit({ sendAt?, experimental_data? })` submits the on-screen draft exactly
-as pressing Enter would, and rejects with a user-presentable reason when it
-cannot. `experimental_data` reaches every `message.dispatch` hook on the
-initial attempt as an `experimental_submission` envelope carrying the
-submitting plugin's id. Core validates the data as JSON but neither persists
-nor interprets it.
+`submit({ experimental_mode?, sendAt?, experimental_data? })` submits the
+draft through the on-screen composer's own queue or steer handler and rejects
+with a user-presentable reason when it cannot. It requires a draft: where the
+shortcut would steer the next queued message from an empty draft, `submit`
+rejects instead. Without a mode it runs whichever one
+Enter runs for this user; `"queue-if-active"` and `"steer-if-active"`, the
+names `bb.sdk.threads.send` uses, pick one explicitly, and
+`"steer-if-active"` starts a turn where the composer has nothing to steer. The
+options combine: `sendAt` and the plugin data travel into the same send,
+queue or steer request the shortcuts build, so a scheduled steer steers the
+turn running at its time. `experimental_data` reaches every `message.dispatch`
+hook on the initial attempt as an `experimental_submission` envelope carrying
+the submitting plugin's id. Core validates the data as JSON but neither
+persists nor interprets it.
+
+There is one implementation. `PromptBoxInternal` publishes `submit` on the
+composer editor bridge; it picks Enter's handler, the queue handler or the
+steer handler and gates it exactly as the matching shortcut is gated, then
+calls the same `onSubmit` or `onModifierSubmit` the shortcuts and the send
+button call, passing `sendAt` and the plugin submission. Only hosts that set
+`sendsOnEnter` (the thread, embedded thread chat and New thread composers)
+accept it. Off-screen voice sends run
+the same Enter action. Every form rejects when the send fails; the Enter
+action still shows its toast, and Enter and the send button ignore the
+rejection.
 
 Docs: `frontend-hooks-and-ui.md`, `backend-events.md`.
 
@@ -2519,9 +2608,10 @@ Docs: `frontend-hooks-and-ui.md`, `backend-events.md`.
    submission without `sendAt`. Confirm which composer customizations should
    receive that authority before stabilization.
 2. **Editors that save instead of send.** The queued-message and sent-message
-   editors and the route-draft fallback reject with "cannot submit
-   programmatically". `isSubmittingBlocked` lets a row disable itself before a
-   click; confirm whether those surfaces also need a distinct capability flag.
+   editors reject with "cannot submit programmatically". `isSubmittingBlocked`
+   lets a row disable itself before a click; confirm whether those surfaces
+   should run their own Enter action (save the edit) instead, and whether a
+   plugin needs a capability flag to tell them apart.
 3. **Data visibility.** Every dispatch hook sees the envelope and its owner id,
    not only the plugin that submitted it. Confirm that dispatch hooks remain
    the right trust boundary for plugin-owned submission data.
@@ -2537,6 +2627,18 @@ Docs: `frontend-hooks-and-ui.md`, `backend-events.md`.
    of `NewThreadRequest`, so another plugin's `experimental_data` can be lost
    there. Decide whether to expose a forwardable experimental field or reject
    data-bearing submissions there.
+7. **Two queue routes.** While Enter queues, a plain submit creates the queued
+   row directly, as Enter does, so dispatch hooks first see it when the row
+   drains. With `sendAt` or `experimental_data` it sends with
+   `queue-if-active`, so the hooks run at submit time and again on the drain;
+   only that inline pass carries the data. Both routes deliver into a running
+   turn once its main run is idle. Decide whether Enter itself should queue
+   through `queue-if-active`.
+8. **Steering a queued message.** `submit` never steers the next queued
+   message. Add an explicit operation for it when a plugin needs one.
+9. **Scheduled submits without a mode.** `submit({ sendAt })` follows
+   Enter, so it schedules a steer for users whose Enter steers. Confirm a
+   caller that schedules should be required to pick a mode.
 
 ## `useComposer().setSelection`
 
@@ -2611,7 +2713,15 @@ requests removal of an unused provider-managed environment, overriding
 retention and bypassing cleanup backoff. It rejects live threads and unmanaged
 environments and succeeds for already-removed ones. Acceptance is not
 completion: read the environment lifecycle fields for progress (CLI:
-`bb environment cleanup`).
+`bb environment cleanup`). After five failed attempts, automatic removal stops
+with a "Needs recovery" message in the existing lifecycle fields.
+The additive `recover: true` option acknowledges interrupted hooks and retries
+failed cleanup after an explicit inspection. Core's cleanup route and the CLI
+use this same path. Linux checks cwd and mapped paths for processes owned by
+the daemon UID and refuses unreadable processes; other users require separate
+inspection. Unsupported platforms refuse workspace recovery. Provider resources
+without an owned workspace can restart removal without acknowledging any hooks.
+No processes are killed by the inspection. Durable automatic recovery is tracked in #5962.
 
 Before stabilization, audit path portability and session freshness after
 machine re-enrollment, and cleanup retry behavior across unavailable
@@ -3214,11 +3324,11 @@ field introduces no separate backend or headless side effect.
 
 - `experimental_useRpcQuery`, `experimental_useRpcKeyedQuery`, `experimental_useRpcMutation`, and `experimental_useRpcRefresh` use the core `@bb/query-tags` cache mechanism per client. Query state keeps previous data during refresh errors; consumers show an inline Retry using `refetch`. Successful reads clear the error. Keyed calls accept `{ keys }` and return a record containing every requested key; consumers share one observer per plugin/method and requests batch up to 200 keys. A pure `select` projection retains unchanged JSON subobjects across key and fetch-state changes, so default rows do not republish unchanged notification levels.
 - `ExperimentalRpcMutationState.pendingInputs` contains every in-flight input for that hook instance until the server acknowledges its write. Background rereads are excluded. `isPending` remains true while any input is pending. Core `useTaggedMutation` exposes the same state from TanStack's mutation cache. Stabilization requires hook-instance isolation, concurrent targets, failure cleanup, and pending feedback surviving row moves between groups.
-- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction; absent reads/rows are skipped. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@bb/query-tags` implementation. Ui-preferences already updates its shared Jotai atoms optimistically, which remains unchanged.
-- Predictions remain over incoming reads until confirmed matched reads arrive, independently of mutation pending state. A rejected write rolls back its layer and surfaces the mutation error. An accepted write whose refresh fails keeps its prediction with the read error and Retry; a successful refresh replaces it. Later predictions and confirmed values are protected from older mutation settles and rollbacks. Inverted completion retains the later confirmed value until a subsequent fresh read can replace it. Keyed refresh receipts release only the rows actually read. Stabilization includes overlapping writes, external invalidation, refresh failures, plain/keyed targets and completion without stale flicker.
+- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction. An absent plain read is skipped; a keyed row that loads while the write is pending shows the prediction. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@bb/query-tags` implementation. Ui-preferences already updates its shared Jotai atoms optimistically, which remains unchanged.
+- Predictions remain over incoming reads until confirmed matched reads arrive, independently of mutation pending state. A rejected write rolls back its layer and surfaces the mutation error. An accepted write whose refresh fails keeps its prediction with the read error and Retry; a successful refresh replaces it. Later predictions and confirmed values are protected from older mutation settles and rollbacks. Inverted completion retains the later confirmed value until a subsequent fresh read can replace it. Keyed rows live in the `@bb/query-tags` keyed store: an accepted row prediction becomes the row's value, and only a read of that row that started after acceptance replaces it. Stabilization includes overlapping writes, external invalidation, refresh failures, plain/keyed targets and completion without stale flicker.
 - `defineRpcContract` accepts the core `ContractTagDeclarations`: `tags(input, output)`, `keyTags(key, value)`, and `invalidates(input, output)` receive validated values. Tags are in the RPC envelope; successful writes broadcast their invalidated tags and return `invalidated`. Tagged mutations resolve at write acknowledgement while matching active reads refresh in the background.
 - `bb.rpc.experimental_invalidate(tags)` requires nonempty tags; `experimental_invalidateAll()` refreshes all reads of that plugin, including untagged reads. Load, reload, disable and reconnect refresh plugin reads through the same cache path. Plugin changed messages are scoped to `{ kind: "plugin", pluginId }` subscribers; reconnect batches subscriptions and unknown targets are ignored.
-- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Stabilization requires additional plugin callers and validation of scoped tags, failures, reconnects, batching and sidebar observer counts. Watching and cache seeding remain outside this API.
+- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Core keeps each thread once, in the same `@bb/query-tags` keyed store as plugin keyed rows, and derives thread detail, every thread list, search and sidebar navigation from it as keyed views. Every core thread write (pin and unpin through one batcher, read state, rename, section and parent moves, archive, unarchive, delete, stop, send status, environment rename) predicts on the entity with `optimisticKeyedUpdate` through `beginOptimisticMutation`, the path `cache.updateKey` uses, and confirms at the server's acknowledgement. One contract table (`@bb/query-tags/testing`) runs against core thread entities and plugin keyed rows; the pin hooks add `useTaggedMutation` with `meta.errorMessage` for core's error toast. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Stabilization requires additional plugin callers and validation of scoped tags, failures, reconnects, batching and sidebar observer counts. Watching and cache seeding remain outside this API.
 
 ## Typed RPC refusals (`experimental_PluginRpcRefusal`)
 

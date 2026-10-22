@@ -5,7 +5,6 @@ import {
   createRpcQueryHooks,
   type RpcQueryHost,
 } from "../internal/rpc-query-host.js";
-import { rpcResponseTags } from "../internal/rpc-tags.js";
 import * as React from "react";
 import {
   createContext,
@@ -2110,18 +2109,10 @@ export function renderSlot<
     const parsedOutput = declaration
       ? await parseRpcValue(declaration.output, result, "invalid_output")
       : result;
-    const envelope = rpcResponseTags(
-      declaration ?? {},
-      parsedInput,
-      parsedOutput,
-    );
-    return {
-      result: strictJsonRoundTrip(parsedOutput, `rpc "${method}" result`),
-      ...envelope,
-    };
+    return strictJsonRoundTrip(parsedOutput, `rpc "${method}" result`);
   };
   const rpcClient: PluginRpcClient = {
-    call: async (method, input) => (await callRpc(method, input)).result,
+    call: (method, input) => callRpc(method, input),
   };
 
   const realtimeHandlers = new Map<string, Set<(payload: unknown) => void>>();
@@ -2546,6 +2537,19 @@ export function renderSlot<
       };
     },
     subscribeEditorState: () => () => {},
+    async editorSubmit({ mode, sendAt, pluginSubmission }) {
+      const reason = composerBlockedReason();
+      if (reason !== null) throw new Error(reason);
+      composerLog.submits.push({
+        ...(mode === "enter" ? {} : { experimental_mode: mode }),
+        ...(sendAt === undefined ? {} : { sendAt }),
+        ...(pluginSubmission === undefined
+          ? {}
+          : { experimental_data: pluginSubmission.data }),
+      });
+      commitComposerDraft("", []);
+      for (const listener of submissionListeners) listener();
+    },
     insertAtCursor(value, block) {
       composerTarget.setDraft(
         appendComposerDraft(composerDraft(), value, block),
@@ -2555,11 +2559,6 @@ export function renderSlot<
     isAvailable: composerIsAvailable,
     focus() {
       composerLog.focusCount += 1;
-    },
-    async submit(submitOptions) {
-      composerLog.submits.push(submitOptions);
-      commitComposerDraft("", []);
-      for (const listener of submissionListeners) listener();
     },
     async setSelection(selection) {
       if (composerScope.kind === "queued-message") {

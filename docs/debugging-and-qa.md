@@ -25,6 +25,20 @@ the Connect desktop session in both the app and embedded browser cookie stores.
 This also authenticates shared-port links under the same Connect domain. The
 browser keeps its separate profile; unrelated site cookies are not copied.
 
+Desktop browser registration first uses a private local broker descriptor whose
+recorded server URL matches the selected server's origin. Otherwise it discovers
+the other private local broker descriptors and sends a fresh random challenge to the selected server's `/api/v1/desktop-browsers/broker-proof`
+endpoint. The server routes it to the descriptor's enrolled host, whose broker
+returns an HMAC using its local authentication token. The desktop verifies that
+proof against the private descriptor before registering; the token never leaves
+the machine. This works for alternate domains and proxies without hostname rules
+or plugin dependencies. Redirects and invalid proofs are rejected. This internal
+desktop handshake adds `desktop.broker.prove` in daemon protocol 248. Older
+protocol-246/247 daemons remain compatible for existing operations; the server
+rejects proof requests for those daemons with an upgrade-required error before
+sending any RPC. Failed lookups retry with exponential backoff from 2 seconds up
+to 1 minute.
+
 Saved desktop browser tabs keep their URL and owning host/window. Opening one
 in the desktop app attaches the existing view when that window still owns it,
 including after its connection generation changes. While the desktop or host is
@@ -448,6 +462,14 @@ getbb.app.
 Local machine enrollment follows the same origin: local `http:` server URLs
 produce `ws:` machine tunnels and `http:` share URLs, while non-local machine
 enrollment remains HTTPS-only.
+
+For bb connect next, `pnpm cloud:dev` sets the Connect worker's and bb-web's
+`NEXT_BASE_DOMAIN` to `next.bb.localhost`. `BB_CLOUD_DEV_GATE_SECRET` sets the
+worker's `GATE_SECRET` (the account API answers 404 without it),
+`BB_CLOUD_DEV_GATE_PUBLIC_KEYS` sets bb-web's `GATE_PUBLIC_KEYS`, and
+`BB_CLOUD_DEV_STATE_DIR` moves the local D1 and Durable Object state away from
+`.wrangler/cloud-dev`. `apps/connect-next/scripts/e2e-local.sh` uses all three;
+see [connect-next.md](connect-next.md#local-end-to-end-run).
 
 The AI gateway answers `503 unavailable` until an OpenRouter key is present.
 Export `OPENROUTER_API_KEY` in the shell before `pnpm cloud:dev` to pass it
@@ -968,3 +990,25 @@ For a stale drawer or sidebar, check whether an optimistic mutation canceled
 the last realtime refresh, then whether its recovery ran after the mutation
 callbacks. Cover this ordering with real Query and Mutation observers; an
 isolated rollback helper test does not exercise mutation settlement.
+
+## Environment Status Loading
+
+Merge-base status is cached per host daemon process at two levels, each a
+least-recently-used cache capped by estimated size. Full comparisons (16 MiB)
+are keyed by checkout path, shell path, resolved HEAD and base commits, base
+label, and file limit; working-tree status is always read fresh. Per-commit
+changed files (64 MiB, skipping any commit over 1 MiB) and patch IDs (8 MiB per
+diff mode) are keyed by commit SHA and shared by every checkout on the host, so
+a new commit or a fetched base commit only needs its own diff. Comparisons where
+a Git command failed or squash detection timed out are not cached. A daemon
+restart clears both levels.
+
+Ahead/behind counts exclude commits whose patch appears on the other side, as
+`git rev-list --cherry-pick` does: only commits touching the same set of paths
+as a commit on the other side are patch-hashed, without rename detection.
+Squash detection reuses the per-commit changed files for the newest 1,000 base
+commits and hashes its candidate patches with Git's rename detection, cached
+separately, within 8 MiB of patch output and a 1-second deadline per attempt.
+When it cannot finish, `mergeBase.squashMergeCheckComplete` is false and the
+counts may include already squash-merged commits; the next refresh retries with
+the cached work. Daemons older than this field report `true`.

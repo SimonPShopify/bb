@@ -151,6 +151,7 @@ const WORKSPACE_STATUS_AVAILABLE_RESULT: JsonObject = {
       baseRef: "abc123",
       aheadCount: 1,
       behindCount: 0,
+      squashMergeCheckComplete: true,
       hasCommittedUnmergedChanges: true,
       commits: [
         {
@@ -179,6 +180,13 @@ const WORKSPACE_DIFF_AVAILABLE_RESULT: JsonObject = {
 const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "environment.hook.run": {},
   "environment.hook.cancel": { status: "terminated" },
+  "environment.inspect_cleanup": {
+    supported: true,
+    active: false,
+    pids: [],
+    unreadablePids: [],
+  },
+  "desktop.broker.prove": { proof: "a".repeat(64) },
   "desktop.browser.list_instances": { instances: [] },
   "desktop.browser.list_tabs": { tabs: [] },
   "desktop.browser.create_tab": {
@@ -1266,8 +1274,78 @@ describe("host-daemon command schemas", () => {
   });
 
   it("uses the current host-daemon protocol version", () => {
-    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(246);
+    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(249);
     expect(HOST_ARTIFACT_MAX_BYTES).toBe(256 * 1024 * 1024);
+  });
+
+  it("keeps accepting the 246 daemon, which knows no connect next tunnels", () => {
+    expect(contract.isCompatibleHostDaemonProtocolVersion(245)).toBe(false);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(246)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(247)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(248)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(249)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(250)).toBe(false);
+    expect(contract.hostDaemonSupportsConnectNext(246)).toBe(false);
+    expect(contract.hostDaemonSupportsConnectNext(247)).toBe(true);
+    expect(contract.hostDaemonSupportsDesktopBrokerProof(247)).toBe(false);
+    expect(contract.hostDaemonSupportsDesktopBrokerProof(248)).toBe(true);
+  });
+
+  it("reads workspace status from daemons that predate squash-check completeness", () => {
+    const legacyResult: unknown = JSON.parse(
+      JSON.stringify(WORKSPACE_STATUS_AVAILABLE_RESULT, (key, value) =>
+        key === "squashMergeCheckComplete" ? undefined : value,
+      ),
+    );
+    expect(
+      contract.hostDaemonOnlineRpcResultSchemaByType["workspace.status"].parse(
+        legacyResult,
+      ),
+    ).toMatchObject({
+      outcome: "available",
+      workspaceStatus: { mergeBase: { squashMergeCheckComplete: true } },
+    });
+  });
+
+  it("parses connect next config and status messages strictly", () => {
+    const config = {
+      domain: "next.getbb.app",
+      server: { protocol: "wss", host: "tunnel.next.getbb.app", port: 443 },
+    };
+    expect(
+      hostDaemonServerWsMessageSchema.parse({
+        type: "connect-next.replace",
+        generation: 3,
+        config,
+      }),
+    ).toEqual({ type: "connect-next.replace", generation: 3, config });
+    expect(
+      hostDaemonServerWsMessageSchema.safeParse({
+        type: "connect-next.replace",
+        generation: 3,
+        config: { ...config, credential: "x" },
+      }).success,
+    ).toBe(false);
+    const status = {
+      state: "connected",
+      label: "laptop",
+      lastError: null,
+      nextRetryAt: null,
+      since: 1,
+      shares: [{ port: 3000, state: "active", error: null }],
+    };
+    expect(
+      hostDaemonDaemonWsMessageSchema.parse({
+        type: "connect-next.status",
+        status,
+      }),
+    ).toEqual({ type: "connect-next.status", status });
+    expect(
+      hostDaemonDaemonWsMessageSchema.safeParse({
+        type: "connect-next.status",
+        status: { ...status, state: "halted" },
+      }).success,
+    ).toBe(false);
   });
 
   it.each([
@@ -3155,6 +3233,16 @@ describe("host-daemon session schemas", () => {
         leaseTimeoutMs: 30_000,
       }).connectShares,
     ).toEqual({ generation: 0, ports: [] });
+
+    expect(
+      hostDaemonSessionOpenResponseSchema.parse({
+        sessionId: "session_default_next",
+        machineEnvironment: { revision: 0, entries: [] },
+        idleProviderSessionTimeoutMinutes: 30,
+        heartbeatIntervalMs: 5_000,
+        leaseTimeoutMs: 30_000,
+      }).connectNext,
+    ).toEqual({ generation: 0, config: null });
 
     expect(() =>
       hostDaemonSessionOpenResponseSchema.parse({
