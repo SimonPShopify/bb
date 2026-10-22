@@ -5,13 +5,18 @@ import {
 import type {
   ProjectExecutionDefaults,
   ResolvedThreadExecutionOptions,
+  Thread,
 } from "@bb/domain";
 import type { AppDeps } from "../../types.js";
 import type {
   ThreadCreateServiceRequest,
   ThreadCreateServiceRequestInput,
 } from "./thread-create-request.js";
-import { resolveCreateThreadExecutionDefaults } from "./thread-default-policy.js";
+import {
+  buildProviderThreadExecutionDefaults,
+  resolveCreateThreadExecutionDefaults,
+} from "./thread-default-policy.js";
+import { getLastExecutionOptions } from "./thread-events.js";
 
 interface RememberProjectExecutionDefaultsForCreateArgs {
   execution: ResolvedThreadExecutionOptions;
@@ -21,6 +26,7 @@ interface RememberProjectExecutionDefaultsForCreateArgs {
 interface ResolveProjectExecutionDefaultsForCreateArgs {
   executionInputSources?: ThreadCreateServiceRequestInput["executionInputSources"];
   model?: ThreadCreateServiceRequestInput["model"];
+  parentThread: Pick<Thread, "id" | "providerId"> | null;
   projectId: string;
   providerId?: ThreadCreateServiceRequestInput["providerId"];
 }
@@ -92,15 +98,32 @@ export function resolveProjectExecutionDefaultsForCreate(
     sources: args.executionInputSources,
     value: args.model,
   });
+  const parentExecution =
+    args.parentThread === null
+      ? null
+      : getLastExecutionOptions(deps, args.parentThread.id);
   const resolution = resolveCreateThreadExecutionDefaults(
     deps.providerRegistry,
     {
-      requestedProviderId,
+      requestedProviderId:
+        requestedProviderId ??
+        (parentExecution === null ? undefined : args.parentThread?.providerId),
       storedDefaults,
     },
   );
-  const { executionDefaults, providerId, providerFallbackCandidates } =
-    resolution;
+  const { providerId, providerFallbackCandidates } = resolution;
+  const executionDefaults =
+    parentExecution !== null && providerId === args.parentThread?.providerId
+      ? {
+          ...(resolution.executionDefaults ??
+            buildProviderThreadExecutionDefaults(deps.providerRegistry, {
+              providerId,
+              model: parentExecution.model,
+            })),
+          model: parentExecution.model,
+          reasoningLevel: parentExecution.reasoningLevel,
+        }
+      : resolution.executionDefaults;
 
   return {
     executionDefaults,
