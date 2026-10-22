@@ -660,7 +660,9 @@ describe("PluginPendingInteractionComposer", () => {
         screen
           .getByRole("button", { name: "Add secrets" })
           .parentElement?.className.split(" "),
-      ).not.toContain("sticky");
+      ).toEqual(
+        expect.arrayContaining(["sticky", "max-md:pointer-coarse:mt-2.5"]),
+      );
       expectFlatTypeScale();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(close).toHaveBeenCalledOnce();

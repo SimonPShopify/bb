@@ -140,7 +140,13 @@ function SecretRequestInteraction({
         </p>
       </div>
 
-      <div className={compact ? "mt-3 space-y-3" : "mt-4 space-y-3.5"}>
+      <div
+        className={
+          compact
+            ? "mt-3 space-y-3 max-md:pointer-coarse:mt-2.5 max-md:pointer-coarse:space-y-2.5"
+            : "mt-4 space-y-3.5"
+        }
+      >
         {payload.fields.map((field) => {
           const inputId = `secret-${interaction.id}-${field.name}`;
           const isRevealed = revealed[field.name] ?? false;
@@ -235,7 +241,7 @@ function SecretRequestInteraction({
         className={cn(
           "flex items-center justify-between gap-2",
           compact
-            ? "mt-3"
+            ? "sticky -bottom-1 z-10 -mb-1 mt-3 bg-surface-raised-solid pb-1 max-md:pointer-coarse:mt-2.5"
             : "sticky -bottom-3 z-10 -mb-3 mt-4 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
