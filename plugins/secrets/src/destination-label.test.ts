@@ -10,8 +10,8 @@ describe("splitDestination", () => {
     [
       "/srv/credentials/droplet-monitor-production-service.env.local",
       {
-        stem: "droplet-monitor-production-service.env",
-        extension: ".local",
+        stem: "droplet-monitor-production-service",
+        extension: ".env.local",
         folder: "/srv/credentials",
       },
     ],
@@ -21,6 +21,10 @@ describe("splitDestination", () => {
     ["C:\\.env", { stem: ".env", extension: "", folder: "C:\\" }],
     ["/srv/app/", { stem: "/srv/app/", extension: "", folder: null }],
     ["secrets.env", { stem: "secrets", extension: ".env", folder: null }],
+    [
+      "/srv/app/config.prod.json",
+      { stem: "config.prod", extension: ".json", folder: "/srv/app" },
+    ],
   ])("splits %s", (path, parts) => {
     expect(splitDestination(path)).toEqual(parts);
   });

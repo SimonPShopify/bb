@@ -154,7 +154,9 @@ function SecretRequestInteraction({
             {destinationFolder === null ? null : (
               <>
                 <span className="shrink-0">in</span>
-                <span className="min-w-0 truncate">{destinationFolder}</span>
+                <span className="max-w-[40%] shrink-0 truncate">
+                  {destinationFolder}
+                </span>
               </>
             )}
           </>
