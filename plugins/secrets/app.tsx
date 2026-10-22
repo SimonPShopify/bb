@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatHomePathForDisplay } from "@/lib/utils";
 import { useQuestionFormHost } from "@/components/ui/question-form-host";
+import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import ViewIcon from "@hugeicons/core-free-icons/ViewIcon";
 import ViewOffSlashIcon from "@hugeicons/core-free-icons/ViewOffSlashIcon";
@@ -93,6 +94,19 @@ function SecretRequestInteraction({
   };
 
   const textInset = compact ? "px-2.5" : undefined;
+  const destinationSeparator = Math.max(
+    payload.destination.path.lastIndexOf("/"),
+    payload.destination.path.lastIndexOf("\\"),
+  );
+  const destinationName = payload.destination.path.slice(
+    destinationSeparator + 1,
+  );
+  const destinationFolder =
+    destinationSeparator < 0
+      ? ""
+      : formatHomePathForDisplay(
+          payload.destination.path.slice(0, Math.max(destinationSeparator, 1)),
+        );
 
   return (
     <form
@@ -102,50 +116,27 @@ function SecretRequestInteraction({
         void submitValues();
       }}
     >
-      <div className={cn("space-y-1.5", textInset)}>
-        {payload.purpose ? (
-          <p
-            title={compact ? payload.purpose : undefined}
-            className={cn(
-              "text-pretty text-xs text-foreground",
-              compact && "line-clamp-2",
-            )}
-          >
-            {payload.purpose}
-          </p>
-        ) : null}
-        <p className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
-          <span className="shrink-0">Writes to</span>
-          <button
-            type="button"
-            aria-expanded={pathExpanded}
-            aria-label={`Writes to ${payload.destination.path}`}
-            title={payload.destination.path}
-            onClick={() => setPathExpanded((expanded) => !expanded)}
-            className="min-w-0 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            {pathExpanded ? (
-              <span className="block break-all rounded bg-surface-raised px-1 py-px text-foreground">
-                {payload.destination.path}
-              </span>
-            ) : (
-              <span
-                dir="rtl"
-                className="block w-min max-w-full truncate rounded bg-surface-raised px-1 py-px text-foreground"
-              >
-                {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
-              </span>
-            )}
-          </button>
+      {payload.purpose ? (
+        <p
+          title={compact ? payload.purpose : undefined}
+          className={cn(
+            "text-pretty text-xs text-foreground",
+            compact && "line-clamp-2",
+            textInset,
+          )}
+        >
+          {payload.purpose}
         </p>
-      </div>
+      ) : null}
 
       <div
-        className={
+        className={cn(
           compact
-            ? "mt-3 space-y-3 max-md:pointer-coarse:mt-2.5 max-md:pointer-coarse:space-y-2.5"
-            : "mt-4 space-y-3.5"
-        }
+            ? "space-y-3 max-md:pointer-coarse:space-y-2.5"
+            : "space-y-3.5",
+          payload.purpose &&
+            (compact ? "mt-3 max-md:pointer-coarse:mt-2.5" : "mt-4"),
+        )}
       >
         {payload.fields.map((field) => {
           const inputId = `secret-${interaction.id}-${field.name}`;
@@ -239,31 +230,65 @@ function SecretRequestInteraction({
 
       <div
         className={cn(
-          "flex items-center justify-between gap-2",
+          "flex flex-wrap items-center gap-x-3 gap-y-2",
           compact
             ? "sticky -bottom-1 z-10 -mb-1 mt-3 bg-popover pb-1 max-md:pointer-coarse:mt-2.5"
             : "sticky -bottom-3 z-10 -mb-3 mt-4 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          onClick={() => void cancelRequest()}
+          aria-expanded={pathExpanded}
+          aria-label={`Saves to ${payload.destination.path}`}
+          title={payload.destination.path}
+          onClick={() => setPathExpanded((expanded) => !expanded)}
+          className={cn(
+            "flex min-w-0 grow basis-48 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            textInset,
+          )}
         >
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" disabled={busy}>
-          {pendingAction === "submit" ? (
-            <HugeiconsIcon
-              icon={Loading03Icon}
-              className="size-3 animate-spin"
-              aria-hidden="true"
-            />
-          ) : null}
-          Add secrets
-        </Button>
+          <HugeiconsIcon
+            icon={File01Icon}
+            className="size-3.5 shrink-0"
+            aria-hidden="true"
+          />
+          <span className="shrink-0">Saves to</span>
+          {pathExpanded ? (
+            <span className="min-w-0 break-all text-foreground">
+              {payload.destination.path}
+            </span>
+          ) : (
+            <>
+              <span className="min-w-0 max-w-[60%] truncate font-medium text-foreground">
+                {destinationName}
+              </span>
+              <span dir="rtl" className="min-w-0 flex-1 truncate">
+                {`\u200e${destinationFolder}\u200e`}
+              </span>
+            </>
+          )}
+        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => void cancelRequest()}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={busy}>
+            {pendingAction === "submit" ? (
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className="size-3 animate-spin"
+                aria-hidden="true"
+              />
+            ) : null}
+            Add secrets
+          </Button>
+        </div>
       </div>
     </form>
   );

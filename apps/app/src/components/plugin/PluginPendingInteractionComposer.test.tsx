@@ -639,15 +639,17 @@ describe("PluginPendingInteractionComposer", () => {
         "OpenRouter API key",
       );
       const destination = screen.getByRole("button", {
-        name: `Writes to ${secretRequest.data.destination.path}`,
+        name: `Saves to ${secretRequest.data.destination.path}`,
       });
       expect(destination.getAttribute("aria-expanded")).toBe("false");
-      expect(destination.textContent).toContain(
-        "~/projects/droplet-monitor/.env",
-      );
+      expect(screen.getByText(".env").className).toContain("font-medium");
+      expect(destination.textContent).toContain("~/projects/droplet-monitor");
+      expect(screen.queryByText(/Writes to/)).toBeNull();
       fireEvent.click(destination);
       expect(destination.getAttribute("aria-expanded")).toBe("true");
-      expect(destination.textContent).toBe(secretRequest.data.destination.path);
+      expect(destination.textContent).toBe(
+        `Saves to${secretRequest.data.destination.path}`,
+      );
       const input = screen.getByLabelText("OPENROUTER_API_KEY");
       expect(input.className.split(" ")).toEqual(
         expect.arrayContaining([
@@ -656,11 +658,11 @@ describe("PluginPendingInteractionComposer", () => {
           "max-md:pointer-coarse:text-base",
         ]),
       );
-      expect(
-        screen
-          .getByRole("button", { name: "Add secrets" })
-          .parentElement?.className.split(" "),
-      ).toEqual(
+      const footer = screen.getByRole("button", {
+        name: "Add secrets",
+      }).parentElement?.parentElement;
+      expect(footer?.contains(destination)).toBe(true);
+      expect(footer?.className.split(" ")).toEqual(
         expect.arrayContaining(["sticky", "max-md:pointer-coarse:mt-2.5"]),
       );
       expectFlatTypeScale();
@@ -677,9 +679,11 @@ describe("PluginPendingInteractionComposer", () => {
       expect(
         screen.getByText("OpenRouter API key").getAttribute("title"),
       ).toBeNull();
-      expect(
-        screen.getByTitle(secretRequest.data.destination.path).textContent,
-      ).toContain("~/projects/droplet-monitor/.env");
+      const destination = screen.getByRole("button", {
+        name: `Saves to ${secretRequest.data.destination.path}`,
+      });
+      expect(destination.textContent).toContain(".env");
+      expect(destination.textContent).toContain("~/projects/droplet-monitor");
       const inputClasses = screen
         .getByLabelText("OPENROUTER_API_KEY")
         .className.split(" ");
@@ -688,7 +692,9 @@ describe("PluginPendingInteractionComposer", () => {
       );
       const submit = document.querySelector('form button[type="submit"]');
       expect(submit?.className.split(" ")).not.toContain("w-full");
-      const actions = submit?.parentElement?.className.split(" ") ?? [];
+      const footer = submit?.parentElement?.parentElement;
+      expect(footer?.contains(destination)).toBe(true);
+      const actions = footer?.className.split(" ") ?? [];
       expect(actions).toContain("sticky");
       expect(actions).not.toContain("flex-col-reverse");
       expectFlatTypeScale();
