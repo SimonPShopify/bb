@@ -639,6 +639,11 @@ describe("PluginPendingInteractionComposer", () => {
           "max-md:pointer-coarse:text-base",
         ]),
       );
+      expect(
+        screen
+          .getByRole("button", { name: "Add secrets" })
+          .parentElement?.className.split(" "),
+      ).not.toContain("sticky");
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(close).toHaveBeenCalledOnce();
       expect(cancel).not.toHaveBeenCalled();
@@ -660,7 +665,11 @@ describe("PluginPendingInteractionComposer", () => {
         .className.split(" ");
       expect(inputClasses).toContain("h-8");
       expect(inputClasses).not.toContain("h-9");
-      expect(document.querySelector("form .sticky")).toBeNull();
+      const submit = document.querySelector('form button[type="submit"]');
+      expect(submit?.className.split(" ")).not.toContain("w-full");
+      const actions = submit?.parentElement?.className.split(" ") ?? [];
+      expect(actions).toContain("sticky");
+      expect(actions).not.toContain("flex-col-reverse");
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(cancel).toHaveBeenCalledWith({
         interactionId: interaction.id,

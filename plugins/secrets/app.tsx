@@ -147,10 +147,11 @@ function SecretRequestInteraction({
           return (
             <div key={field.name} className="min-w-0 space-y-1">
               <div
-                className={cn(
-                  "flex min-w-0 flex-wrap items-baseline gap-x-2",
-                  textInset,
-                )}
+                className={
+                  compact
+                    ? "flex min-w-0 flex-wrap items-baseline gap-x-2 px-2.5"
+                    : "space-y-0.5"
+                }
               >
                 <Label
                   htmlFor={inputId}
@@ -163,8 +164,8 @@ function SecretRequestInteraction({
                   <p
                     title={compact ? field.description : undefined}
                     className={cn(
-                      "min-w-0 grow basis-24 text-xs text-muted-foreground",
-                      compact && "truncate",
+                      "text-xs text-muted-foreground",
+                      compact && "min-w-0 grow basis-24 truncate",
                     )}
                   >
                     {field.description}
@@ -235,7 +236,9 @@ function SecretRequestInteraction({
       <div
         className={cn(
           "flex items-center justify-between gap-2",
-          compact ? "mt-1.5" : "mt-3",
+          compact
+            ? "mt-1.5"
+            : "sticky -bottom-3 z-10 -mb-3 mt-1 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-2",
         )}
       >
         <Button
