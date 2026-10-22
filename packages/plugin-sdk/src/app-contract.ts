@@ -1709,6 +1709,123 @@ export interface PluginThreadHeaderActionRegistration {
   component: ComponentType<PluginThreadHeaderActionProps>;
 }
 
+/**
+ * Props passed to an `experimental_threadInfoRow` or
+ * `experimental_threadInfoSection` component, rendered in a thread's Info tab.
+ */
+export interface ExperimentalThreadInfoProps {
+  /**
+   * The thread whose Info tab is open. A split layout renders one Info tab per
+   * pane, so the component mounts once per visible thread; keep per-thread
+   * state in the component, never in a module-level singleton.
+   */
+  threadId: string;
+  projectId: string;
+}
+
+/**
+ * A row in the thread Info tab's details block, beside bb's own rows. Render
+ * one or more `experimental_DetailRow` elements, or null to show nothing for
+ * this thread. A crash removes only this row for that thread.
+ */
+export interface ExperimentalThreadInfoRowRegistration {
+  /** Unique within the plugin; letters, digits, `-`, `_`. */
+  id: string;
+  /**
+   * Rows sort by `group` (string compare), then by `order` within a group
+   * (unset sorts last), then by registration order, with bb's own rows first
+   * on a tie. bb's groups are
+   * {@link PluginSdkApp.experimental_THREAD_INFO_ROW_GROUPS}; any other
+   * string is a group of its own, placed where it sorts. Groups only order
+   * rows; the details block draws no separator between them.
+   */
+  group: string;
+  order?: number;
+  component: ComponentType<ExperimentalThreadInfoProps>;
+}
+
+/**
+ * A section in the thread Info tab, below the details block. Render one
+ * `experimental_InfoSection`, or null to hide the section for this thread.
+ * The host remembers the section's collapsed state per registration. A crash
+ * removes only this section for that thread.
+ */
+export interface ExperimentalThreadInfoSectionRegistration {
+  /** Unique within the plugin; letters, digits, `-`, `_`. */
+  id: string;
+  /**
+   * Sections sort by `group` (string compare), then by `order` within a group
+   * (unset sorts last), then by registration order, with bb's own sections
+   * first on a tie. bb's groups are
+   * {@link PluginSdkApp.experimental_THREAD_INFO_SECTION_GROUPS}; any other
+   * string is a group of its own, placed where it sorts.
+   */
+  group: string;
+  order?: number;
+  component: ComponentType<ExperimentalThreadInfoProps>;
+}
+
+/**
+ * Props of the host-owned `experimental_InfoSection` component — the heading,
+ * count, and collapse control every Info tab section uses.
+ */
+export interface ExperimentalInfoSectionProps {
+  label: string;
+  /** Drawn as a pill after the label; omit for no count. */
+  count?: number;
+  /** Drawn after the label and count while the section is expanded. */
+  accessory?: ReactNode;
+  /** Drawn at the heading's trailing edge while the section is expanded. */
+  trailing?: ReactNode;
+  children: ReactNode;
+}
+
+/**
+ * Props of the host-owned `experimental_DetailRow` component — one label and
+ * value pair in the Info tab's details block.
+ */
+export interface ExperimentalDetailRowProps {
+  label: ReactNode;
+  /** Icon drawn before the label, any name `experimental_Icon` accepts. */
+  icon?: BbIconName;
+  /** Vertical alignment of label and value; defaults to `center`. */
+  align?: "center" | "start";
+  children: ReactNode;
+}
+
+/**
+ * Props of the host-owned `experimental_InfoList` component — the list every
+ * Info tab section uses, collapsed to `limit` rows behind a "N more" toggle.
+ */
+export interface ExperimentalInfoListProps<Item> {
+  items: readonly Item[];
+  getKey(item: Item): string;
+  /** Usually an `experimental_InfoListRow`. */
+  renderItem(item: Item): ReactNode;
+  /** Rows shown before the "N more" toggle; defaults to 5. */
+  limit?: number;
+}
+
+/**
+ * Props of the host-owned `experimental_InfoListRow` component — one row of an
+ * `experimental_InfoList`.
+ */
+export interface ExperimentalInfoListRowProps {
+  /** Drawn in the row's 12px leading column, such as an `experimental_Icon`. */
+  leading: ReactNode;
+  /** Tooltip and accessible name for `leading`; omit when it is decorative. */
+  leadingLabel?: string;
+  name: ReactNode;
+  /** Native tooltip on the name. */
+  title?: string;
+  /** Muted text after the name, truncated from the start. */
+  context?: string;
+  /** Drawn at the row's trailing edge, such as a status. */
+  trailing?: ReactNode;
+  /** Runs when the user activates the row; omit for a static row. */
+  onSelect?: () => void;
+}
+
 export interface ExperimentalPluginBrowserToolbarActionRegistration {
   /** Unique within the plugin; letters, digits, `-`, `_`. */
   id: string;
@@ -2586,6 +2703,22 @@ export interface PluginAppSlots {
    */
   experimental_threadHeaderAction(
     registration: PluginThreadHeaderActionRegistration,
+  ): void;
+  /**
+   * Add a row to the thread Info tab's details block (see
+   * {@link ExperimentalThreadInfoRowRegistration}). Experimental: see
+   * docs/api_to_audit.md.
+   */
+  experimental_threadInfoRow(
+    registration: ExperimentalThreadInfoRowRegistration,
+  ): void;
+  /**
+   * Add a section to the thread Info tab (see
+   * {@link ExperimentalThreadInfoSectionRegistration}). Experimental: see
+   * docs/api_to_audit.md.
+   */
+  experimental_threadInfoSection(
+    registration: ExperimentalThreadInfoSectionRegistration,
   ): void;
   /**
    * Add an action to every thread actions menu (see
@@ -4222,6 +4355,31 @@ export interface PluginSdkApp {
     readonly lifecycle: "4_lifecycle";
   };
   /**
+   * bb's thread Info row groups, for an `experimental_threadInfoRow` that
+   * joins one: `thread` (Parent, Notify parent, Project), `environment`
+   * (Environment, Machine, provisioning failure, Directory), `git` (Branch,
+   * Merge base, Git status), `pullRequest`, and `lifecycle` (Archived).
+   * Experimental: see docs/api_to_audit.md.
+   */
+  experimental_THREAD_INFO_ROW_GROUPS: {
+    readonly thread: "1_thread";
+    readonly environment: "2_environment";
+    readonly git: "3_git";
+    readonly pullRequest: "4_pullRequest";
+    readonly lifecycle: "5_lifecycle";
+  };
+  /**
+   * bb's thread Info section groups, for an `experimental_threadInfoSection`
+   * that joins one: `related` (Child threads, Forks), `changes` (Commits,
+   * Uncommitted files), and `storage` (Thread storage). Experimental: see
+   * docs/api_to_audit.md.
+   */
+  experimental_THREAD_INFO_SECTION_GROUPS: {
+    readonly related: "1_related";
+    readonly changes: "2_changes";
+    readonly storage: "3_storage";
+  };
+  /**
    * Per-row drag-to-split support (see {@link PluginSidebarThreadSplit}).
    * Call it once per rendered row, like the built-in sidebar does.
    * Experimental: see docs/api_to_audit.md.
@@ -4461,6 +4619,32 @@ export interface PluginSdkApp {
    * docs/api_to_audit.md.
    */
   experimental_Diff: ComponentType<DiffProps>;
+  /**
+   * The thread Info tab's section frame (see
+   * {@link ExperimentalInfoSectionProps}), the one bb's own sections use.
+   * Inside an `experimental_threadInfoSection` it collapses, and the host
+   * remembers that per registration. Experimental: see docs/api_to_audit.md.
+   */
+  experimental_InfoSection: ComponentType<ExperimentalInfoSectionProps>;
+  /**
+   * The thread Info tab's label and value row (see
+   * {@link ExperimentalDetailRowProps}), the one bb's own rows use.
+   * Experimental: see docs/api_to_audit.md.
+   */
+  experimental_DetailRow: ComponentType<ExperimentalDetailRowProps>;
+  /**
+   * The thread Info tab's list (see {@link ExperimentalInfoListProps}), the
+   * one bb's own sections use. Experimental: see docs/api_to_audit.md.
+   */
+  experimental_InfoList<Item>(
+    props: ExperimentalInfoListProps<Item>,
+  ): ReactNode;
+  /**
+   * One row of `experimental_InfoList` (see
+   * {@link ExperimentalInfoListRowProps}), the row bb's own sections use.
+   * Experimental: see docs/api_to_audit.md.
+   */
+  experimental_InfoListRow: ComponentType<ExperimentalInfoListRowProps>;
   /** @internal Superseded by `useComposer()`; kept for plugins built against older SDKs. */
   useComposerView(): ComposerView;
 }

@@ -148,6 +148,18 @@ export const experimental_SourceCode = runtimeComponent(
   "experimental_SourceCode",
 );
 export const experimental_Diff = runtimeComponent("experimental_Diff");
+// The thread Info tab's building blocks (experimental — see
+// docs/api_to_audit.md).
+export const experimental_InfoSection = runtimeComponent(
+  "experimental_InfoSection",
+);
+export const experimental_DetailRow = runtimeComponent(
+  "experimental_DetailRow",
+);
+export const experimental_InfoList = runtimeComponent("experimental_InfoList");
+export const experimental_InfoListRow = runtimeComponent(
+  "experimental_InfoListRow",
+);
 export const experimental_useRpcQuery = runtimeFunction(
   "experimental_useRpcQuery",
 );
@@ -210,6 +222,10 @@ export const experimental_ThreadActionsContextMenu = runtimeComponent(
   "experimental_ThreadActionsContextMenu",
 );
 export { experimental_THREAD_ACTION_GROUPS } from "./thread-action-groups.js";
+export {
+  experimental_THREAD_INFO_ROW_GROUPS,
+  experimental_THREAD_INFO_SECTION_GROUPS,
+} from "./thread-info-groups.js";
 export const experimental_useSidebarThreadSplit = runtimeFunction(
   "experimental_useSidebarThreadSplit",
 );

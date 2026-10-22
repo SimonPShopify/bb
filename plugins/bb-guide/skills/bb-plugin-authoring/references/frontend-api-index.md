@@ -23,6 +23,10 @@ Read the installed SDK declarations for the exact current signatures.
 - `experimental_useCheckoutState`
 - `experimental_SourceCode`
 - `experimental_Diff`
+- `experimental_InfoSection`
+- `experimental_DetailRow`
+- `experimental_InfoList`
+- `experimental_InfoListRow`
 - `useRpc`
 - `experimental_useRpcQuery`
 - `experimental_useRpcKeyedQuery`
@@ -48,6 +52,8 @@ Read the installed SDK declarations for the exact current signatures.
 - `experimental_ThreadActionsMenu`
 - `experimental_ThreadActionsContextMenu`
 - `experimental_THREAD_ACTION_GROUPS`
+- `experimental_THREAD_INFO_ROW_GROUPS`
+- `experimental_THREAD_INFO_SECTION_GROUPS`
 - `experimental_useSidebarThreadSplit`
 - `experimental_useSidebarNavigation` — the sidebar navigation items in the
   user's saved order, the active item, Home state, and host actions to
@@ -109,6 +115,11 @@ Read the installed SDK declarations for the exact current signatures.
 - `ExperimentalSidebarFooterDisclosureProps`
 - `PluginThreadListProps`
 - `PluginThreadHeaderActionProps`
+- `ExperimentalThreadInfoProps`
+- `ExperimentalInfoSectionProps`
+- `ExperimentalDetailRowProps`
+- `ExperimentalInfoListProps`
+- `ExperimentalInfoListRowProps`
 - `ExperimentalPluginBrowserToolbarActionProps`
 - `ExperimentalPluginBrowserPage`
 - `ExperimentalPluginBrowserPageEvaluateOptions`
@@ -178,6 +189,8 @@ Read the installed SDK declarations for the exact current signatures.
 - `PluginBoundThreadsArea`
 - `PluginBrowserBbSdk`
 - `PluginThreadHeaderActionRegistration`
+- `ExperimentalThreadInfoRowRegistration`
+- `ExperimentalThreadInfoSectionRegistration`
 - `PluginThreadActionTarget`
 - `PluginThreadActionChoice`
 - `PluginThreadActionChoices`

@@ -2407,6 +2407,56 @@ Docs: `frontend-registration.md`.
    that split, and decide whether other multi-mount slots need the same
    treatment.
 
+## `app.slots.experimental_threadInfoRow` / `app.slots.experimental_threadInfoSection` / `experimental_THREAD_INFO_ROW_GROUPS` / `experimental_THREAD_INFO_SECTION_GROUPS` / `experimental_InfoSection` / `experimental_DetailRow` / `experimental_InfoList` / `experimental_InfoListRow` (`@get-bb/plugin-sdk/app`)
+
+A registration is `{ id, group, order?, component }`. The component receives
+`{ threadId, projectId }` and mounts once per visible thread's Info tab. Rows
+render in the details block, sections below it, each sorted the way thread
+actions are: by `group` (string compare), then `order` within the group (unset
+last), then registration order with core first on a tie. bb's groups are the
+two exported tables; core uses orders 10, 20, 30 within each. Groups draw no
+separator. Each plugin
+entry mounts in its own crash boundary keyed by thread, so a crash drops only
+that row or section. The four components are the Info tab's own building
+blocks: `experimental_InfoSection` (heading, count pill, collapse),
+`experimental_DetailRow` (label/value row with an optional icon),
+`experimental_InfoList` (the "N more" list), and `experimental_InfoListRow`.
+Inside a section slot, `experimental_InfoSection` collapses, and the state is
+stored in the `infoPanel.collapsedSections` preference under the core id or
+`<pluginId>/<id>`.
+
+**Core callers.** `ThreadMetadataContent` renders the Info tab only through
+`ThreadInfoRows` and `ThreadInfoSections`
+(`apps/app/src/components/secondary-panel/info/ThreadInfoSlots.tsx`), which
+merge `CORE_THREAD_INFO_ROWS` and `CORE_THREAD_INFO_SECTIONS` with plugin
+registrations. `experimental_DetailRow` is bb's only label/value row
+(`DetailRow` in `apps/app/src/components/ui/detail-card.tsx`): all eleven core
+rows and the commit dialog draw with it, and core's five sections draw with
+`InfoSection` and `InfoList`. The
+Automations plugin registers the Automations section. Contract tests:
+`ThreadInfoSlots.test.tsx`.
+
+Docs: `frontend-registration.md`, `frontend-components.md`.
+
+**Audit before stabilizing.**
+
+1. **Props.** Components get only ids, so a plugin row that needs the thread's
+   environment or workspace status has no SDK read for it; core rows read the
+   Info tab's host state instead. Decide whether the props should carry a
+   thread snapshot before a second plugin needs one.
+2. **Group boundaries.** Rows are grouped thread, environment, git, pull
+   request, lifecycle; sections related, changes, storage. Confirm these are
+   the groups to freeze, since moving a core entry between groups moves the
+   plugin entries that anchor to it.
+3. **Empty state.** The Info tab still decides between its details, a loading
+   skeleton, and "No thread details available." from core state
+   (`hasAnyThreadMetadata`), so plugin entries never count toward it and are
+   hidden with core's details. Decide whether registrations should report
+   visibility.
+4. **Separators.** The Info tab draws section separators on every
+   `[data-info-section]`, so a section that renders without
+   `experimental_InfoSection` gets no separator. Confirm that is acceptable.
+
 ## `app.slots.experimental_threadAction` / `experimental_useThreadActions` / `experimental_useThreadActionRegistrations` / `experimental_ThreadActionsMenu` / `experimental_ThreadActionsContextMenu` / `experimental_THREAD_ACTION_GROUPS` (`@get-bb/plugin-sdk/app`)
 
 A registration is `{ id, title, icon, group, order?, useData?, item }`.

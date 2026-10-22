@@ -282,6 +282,13 @@ Read the installed declarations for exact current signatures.
 - `PluginThreadEventPayloads`
 - `PluginThreadHeaderActionProps`
 - `PluginThreadHeaderActionRegistration`
+- `ExperimentalThreadInfoProps`
+- `ExperimentalThreadInfoRowRegistration`
+- `ExperimentalThreadInfoSectionRegistration`
+- `ExperimentalInfoSectionProps`
+- `ExperimentalDetailRowProps`
+- `ExperimentalInfoListProps`
+- `ExperimentalInfoListRowProps`
 - `PluginThreadListProps`
 - `PluginThreadListRegistration`
 - `PluginThreadPanelActionContext`

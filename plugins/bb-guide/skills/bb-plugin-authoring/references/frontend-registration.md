@@ -169,6 +169,36 @@ A common pairing with a replaced sidebar: hide child threads from the list and
 surface them here instead, filtering `experimental_useSidebarThreads()` by
 `parentThreadId === threadId`.
 
+### Rows and sections in the thread Info tab
+
+`app.slots.experimental_threadInfoRow` adds a row to the Info tab's details
+block; `app.slots.experimental_threadInfoSection` adds a section below it. bb's
+own rows and sections are registrations of the same `{ id, group, order?,
+component }` shape, drawn with the SDK's Info components (frontend-components.md).
+
+```tsx
+app.slots.experimental_threadInfoSection({ id: "automations", group: SECTION_GROUPS.related, order: 0, component: Automations });
+function Automations({ threadId }: ExperimentalThreadInfoProps) {
+  const items = useItems(threadId);
+  if (items.length === 0) return null;
+  return (
+    <InfoSection label="Automations" count={items.length}>
+      <InfoList items={items} getKey={(item) => item.id} limit={3}
+        renderItem={(item) => <InfoListRow leading={<Glyph />} name={item.name} onSelect={...} />} />
+    </InfoSection>
+  );
+}
+```
+
+Components receive `{ threadId, projectId }` and mount once per visible
+thread; return null to show nothing. A row renders `experimental_DetailRow`.
+Entries sort by `group`, then `order` within it (unset last), then registration
+order, bb's first on a tie, as thread actions do. Join one of bb's groups from
+`experimental_THREAD_INFO_ROW_GROUPS` or `experimental_THREAD_INFO_SECTION_GROUPS`
+(bb's entries use orders 10, 20, 30 within a group), or name your own group to
+sort it where its string falls. Inside a section slot `experimental_InfoSection` collapses and bb
+remembers it per registration. A crash removes only that row or section.
+
 ### An action in every thread menu
 
 `app.slots.experimental_threadAction` adds an entry to the thread header's

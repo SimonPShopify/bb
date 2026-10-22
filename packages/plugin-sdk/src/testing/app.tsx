@@ -8,6 +8,7 @@ import {
 import * as React from "react";
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useLayoutEffect,
@@ -84,6 +85,12 @@ import {
   type PluginSidebarThreadsState,
   type PluginSourceCodeRendererRegistration,
   type PluginThreadHeaderActionRegistration,
+  type ExperimentalThreadInfoRowRegistration,
+  type ExperimentalThreadInfoSectionRegistration,
+  type ExperimentalInfoSectionProps,
+  type ExperimentalDetailRowProps,
+  type ExperimentalInfoListProps,
+  type ExperimentalInfoListRowProps,
   type PluginThreadActionEntry,
   type PluginThreadActionRegistration,
   type PluginThreadActionRegistrationInfo,
@@ -130,6 +137,10 @@ import {
 import { normalizePluginThreadRowStatus } from "../internal/composer-customization-validation.js";
 import { normalizeExperimentalFileOpenOptions } from "../internal/file-navigation-validation.js";
 import { experimental_THREAD_ACTION_GROUPS } from "../thread-action-groups.js";
+import {
+  experimental_THREAD_INFO_ROW_GROUPS,
+  experimental_THREAD_INFO_SECTION_GROUPS,
+} from "../thread-info-groups.js";
 import {
   collectPluginAppRegistrations,
   type CollectedPluginProviderIconRegistration,
@@ -1216,6 +1227,78 @@ function TestDiff({
   );
 }
 
+/** Stand-in for the Info tab section frame: a labelled section. */
+function TestInfoSection({
+  label,
+  count,
+  accessory,
+  trailing,
+  children,
+}: ExperimentalInfoSectionProps) {
+  return (
+    <section aria-label={label} data-testid="bb-info-section">
+      <h3>
+        {label}
+        {count === undefined ? null : <span>{count}</span>}
+      </h3>
+      {accessory}
+      {trailing}
+      {children}
+    </section>
+  );
+}
+
+/** Stand-in for the Info tab label and value row. */
+function TestDetailRow({ label, icon, children }: ExperimentalDetailRowProps) {
+  return (
+    <div data-testid="bb-detail-row" data-icon={icon}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+/** Stand-in for the Info tab list: every item, with the limit recorded. */
+function TestInfoList<Item>({
+  items,
+  getKey,
+  renderItem,
+  limit,
+}: ExperimentalInfoListProps<Item>) {
+  return (
+    <ul data-limit={limit}>
+      {items.map((item) => (
+        <Fragment key={getKey(item)}>{renderItem(item)}</Fragment>
+      ))}
+    </ul>
+  );
+}
+
+/** Stand-in for one Info tab list row: a button when it can be selected. */
+function TestInfoListRow({
+  leading,
+  name,
+  title,
+  context,
+  trailing,
+  onSelect,
+}: ExperimentalInfoListRowProps) {
+  return (
+    <li>
+      {leading}
+      {onSelect === undefined ? (
+        <span title={title}>{name}</span>
+      ) : (
+        <button type="button" title={title} onClick={onSelect}>
+          {name}
+        </button>
+      )}
+      {context === undefined ? null : <span>{context}</span>}
+      {trailing}
+    </li>
+  );
+}
+
 type TestClipboard = (
   content: ExperimentalClipboardContent,
 ) => Promise<boolean>;
@@ -1379,6 +1462,10 @@ const testPluginSdkApp = {
   },
   experimental_SourceCode: TestSourceCode,
   experimental_Diff: TestDiff,
+  experimental_InfoSection: TestInfoSection,
+  experimental_DetailRow: TestDetailRow,
+  experimental_InfoList: TestInfoList,
+  experimental_InfoListRow: TestInfoListRow,
   experimental_useSidebarThreads(): PluginSidebarThreadsState {
     return useSlotEnv("experimental_useSidebarThreads").sidebarThreads;
   },
@@ -1430,6 +1517,8 @@ const testPluginSdkApp = {
   experimental_ThreadActionsContextMenu: TestThreadActionsContextMenu,
   experimental_PluginRpcCallError,
   experimental_THREAD_ACTION_GROUPS,
+  experimental_THREAD_INFO_ROW_GROUPS,
+  experimental_THREAD_INFO_SECTION_GROUPS,
   experimental_useSidebarNavigation(): ExperimentalSidebarNavigationState {
     return useSlotEnv("experimental_useSidebarNavigation").sidebarNavigation;
   },
@@ -1572,6 +1661,8 @@ export interface CapturedPluginApp {
   threadLists: PluginThreadListRegistration[];
   experimentalSidebarNavigations: ExperimentalSidebarNavigationRegistration[];
   threadHeaderActions: PluginThreadHeaderActionRegistration[];
+  threadInfoRows: ExperimentalThreadInfoRowRegistration[];
+  threadInfoSections: ExperimentalThreadInfoSectionRegistration[];
   threadActions: PluginThreadActionRegistration<unknown>[];
   browserToolbarActions: ExperimentalPluginBrowserToolbarActionRegistration[];
   fileOpeners: PluginFileOpenerRegistration[];
