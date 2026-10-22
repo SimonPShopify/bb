@@ -411,15 +411,8 @@ const splitLayout = useSidebarSplitLayout(); // { panes: [{ paneId, rect, thread
 // <experimental_ProviderIcon providerKind="environment" provider={entry} />:
 const { providers: environmentProviders } = useEnvironmentProviders();
 
-// Pull requests come from the bundled GitHub PR Status plugin, keyed by
-// environment, so every visible row loads in one request (see
-// references/frontend-pull-requests.md):
-const { data } = experimental_useRpcKeyedQuery({
-  pluginId: "bb--github-pr-status",
-  contract: githubPrStatus,
-  method: "pullRequests",
-  keys: thread.environment ? [thread.environment.id] : [],
-});
+// Pull requests: read the GitHub PR Status plugin by thread.environment?.id
+// (references/frontend-pull-requests.md).
 
 const navigate = useBbNavigate();
 const sdk = useSdk();
