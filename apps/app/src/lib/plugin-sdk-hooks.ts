@@ -31,6 +31,7 @@ import type {
 } from "@get-bb/plugin-sdk";
 import { jsonValueSchema } from "@bb/domain";
 import {
+  PluginContext,
   PluginSlotOwnershipContext,
   usePluginId,
 } from "@/components/plugin/plugin-context";
@@ -784,7 +785,7 @@ export const {
   experimental_useRpcMutation,
   experimental_useRpcRefresh,
 } = createRpcQueryHooks(() => {
-  const pluginId = usePluginId();
+  const pluginId = useContext(PluginContext);
   const queryClient = useQueryClient();
   return useMemo(
     () => ({

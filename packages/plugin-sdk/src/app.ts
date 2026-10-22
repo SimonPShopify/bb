@@ -210,9 +210,6 @@ export const experimental_ThreadActionsContextMenu = runtimeComponent(
   "experimental_ThreadActionsContextMenu",
 );
 export { experimental_THREAD_ACTION_GROUPS } from "./thread-action-groups.js";
-export const experimental_useSidebarThreadPullRequest = runtimeFunction(
-  "experimental_useSidebarThreadPullRequest",
-);
 export const experimental_useSidebarThreadSplit = runtimeFunction(
   "experimental_useSidebarThreadSplit",
 );

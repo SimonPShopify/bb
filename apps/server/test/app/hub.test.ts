@@ -156,16 +156,15 @@ describe("NotificationHub", () => {
       environmentId: "environment-1",
     } as const;
     const pullRequest = {
-      kind: "environment-pull-request",
-      environmentId: "environment-1",
+      kind: "plugin-read",
+      pluginId: "bb--github-pr-status",
+      method: "pullRequests",
+      read: { key: "environment-1" },
     } as const;
     const changes: unknown[] = [];
-    hub.onWatchedTargets(
-      ["environment-detail", "environment-pull-request"],
-      (change) => {
-        changes.push(change);
-      },
-    );
+    hub.onWatchedTargets(["environment-detail", "plugin-read"], (change) => {
+      changes.push(change);
+    });
 
     hub.subscribe(first, environment);
     hub.subscribe(second, { ...environment });

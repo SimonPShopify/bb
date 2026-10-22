@@ -34,7 +34,7 @@ import type {
 } from "../app-contract.js";
 
 export interface RpcQueryHost {
-  pluginId: string;
+  pluginId: string | null;
   queryClient: QueryClient;
   call(pluginId: string, method: string, input: JsonValue): Promise<unknown>;
   subscribe(pluginId: string): () => void;
@@ -139,6 +139,19 @@ async function callRpc(
   };
 }
 
+function resolvePluginId(
+  host: RpcQueryHost,
+  pluginId: string | undefined,
+): string {
+  const resolved = pluginId ?? host.pluginId;
+  if (resolved === null) {
+    throw new Error(
+      "plugin RPC hooks outside a plugin slot component need an explicit pluginId",
+    );
+  }
+  return resolved;
+}
+
 const tagsOf = (data: RpcResponse) => [
   ...data.tags,
   ...Object.values(data.keyTags).flat(),
@@ -162,7 +175,7 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
     options,
   ) => {
     const host = useHost();
-    const pluginId = options.pluginId ?? host.pluginId;
+    const pluginId = resolvePluginId(host, options.pluginId);
     const input = jsonValueSchema.parse(options.input ?? null);
     const queryKey = rpcQueryKey(pluginId, options.method, input);
     useSubscription(host, pluginId, options.enabled ?? true);
@@ -183,13 +196,7 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
         }),
         queryFn: () =>
           runTaggedRead(host.queryClient, queryKey, async () =>
-            callRpc(
-              host,
-              pluginId,
-              options.contract,
-              options.method,
-              input,
-            ),
+            callRpc(host, pluginId, options.contract, options.method, input),
           ),
       },
       host.queryClient,
@@ -229,7 +236,7 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
   > {
     type T = ExperimentalRpcKeyedValue<Contract[Method]>;
     const host = useHost();
-    const pluginId = options.pluginId ?? host.pluginId;
+    const pluginId = resolvePluginId(host, options.pluginId);
     const enabled = options.enabled ?? true;
     const identity = JSON.stringify([...new Set(options.keys)].sort());
     const keys = useMemo(
@@ -330,7 +337,7 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
     Method extends keyof Contract & string = keyof Contract & string,
   >(options: ExperimentalRpcMutationOptions<Contract, Method>) {
     const host = useHost();
-    const pluginId = options.pluginId ?? host.pluginId;
+    const pluginId = resolvePluginId(host, options.pluginId);
     const mutation = useTaggedMutation<
       StandardSchemaV1InferInput<Contract[Method]["input"]>,
       PluginRpcResult<Contract[Method]>
@@ -388,19 +395,14 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
   }
   function experimental_useRpcRefresh() {
     const host = useHost();
+    const pluginId = resolvePluginId(host, undefined);
     const isRefreshing =
-      useIsFetching(
-        { queryKey: ["plugin-rpc", host.pluginId] },
-        host.queryClient,
-      ) > 0;
+      useIsFetching({ queryKey: ["plugin-rpc", pluginId] }, host.queryClient) >
+      0;
     return {
       isRefreshing,
       refresh: () => {
-        void invalidateTags(
-          host.queryClient,
-          pluginTagScope(host.pluginId),
-          null,
-        );
+        void invalidateTags(host.queryClient, pluginTagScope(pluginId), null);
       },
     };
   }

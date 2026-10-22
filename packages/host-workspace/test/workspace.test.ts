@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { WorkspaceChangeStats } from "@bb/domain";
@@ -1086,19 +1085,5 @@ describe("Workspace", () => {
     const workspace = new Workspace(repoPath);
 
     expect(await workspace.getHeadSha()).toBeNull();
-  });
-});
-
-describe("getPullRequest", () => {
-  it("reports a vanished workspace path as unavailable, not absent", async () => {
-    const missingPath = path.join(
-      os.tmpdir(),
-      `bb-missing-workspace-${process.pid}-${Date.now()}`,
-    );
-    const workspace = new Workspace(missingPath);
-    await expect(workspace.getPullRequest()).resolves.toEqual({
-      outcome: "unavailable",
-      message: `Workspace path no longer exists: ${missingPath}`,
-    });
   });
 });

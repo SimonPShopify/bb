@@ -11,16 +11,11 @@ import type {
   ClientTurnRequestId,
   AvailableModel,
   DynamicTool,
-  GitHostPullRequest,
   PromptInput,
 } from "@bb/domain";
 import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
 import { makeWorkspaceMergeBase, makeWorkspaceStatus } from "@bb/test-helpers";
-import type {
-  HostWorkspace,
-  ProvisionWorkspaceArgs,
-  PullRequestActionOptions,
-} from "@bb/host-workspace";
+import type { HostWorkspace, ProvisionWorkspaceArgs } from "@bb/host-workspace";
 import { RuntimeManager } from "../../src/runtime-manager.js";
 import type { CommandDispatchOptions } from "../../src/command-dispatch-support.js";
 import type { FetchProjectAttachment } from "../../src/project-attachments.js";
@@ -88,11 +83,6 @@ interface FakeWorkspaceState {
   destroyed: boolean;
   lastCommitMessage: string | undefined;
   lastDiffTarget: FakeWorkspaceDiffTarget | undefined;
-  lastPullRequestAction: PullRequestActionOptions | undefined;
-  pullRequestActionShellPath: string | undefined;
-  pullRequest: GitHostPullRequest | null;
-  pullRequestLookupError: string | null;
-  pullRequestLookupShellPath: string | undefined;
   statusReads: number;
 }
 
@@ -147,11 +137,6 @@ export function createFakeWorkspace(pathname: string) {
     lastDiffTarget: undefined,
     lastCommitMessage: undefined,
     destroyed: false,
-    lastPullRequestAction: undefined,
-    pullRequestActionShellPath: undefined,
-    pullRequest: null,
-    pullRequestLookupError: null,
-    pullRequestLookupShellPath: undefined,
   };
   const workspace: FakeHostWorkspace = {
     path: pathname,
@@ -225,22 +210,6 @@ export function createFakeWorkspace(pathname: string) {
     },
     async diffPatch() {
       return [];
-    },
-    async getPullRequest(options) {
-      state.pullRequestLookupShellPath = options?.shellPath;
-      if (state.pullRequestLookupError !== null) {
-        return {
-          outcome: "unavailable" as const,
-          message: state.pullRequestLookupError,
-        };
-      }
-      return state.pullRequest === null
-        ? { outcome: "none" as const }
-        : { outcome: "found" as const, pullRequest: state.pullRequest };
-    },
-    async runPullRequestAction(action, options) {
-      state.lastPullRequestAction = action;
-      state.pullRequestActionShellPath = options?.shellPath;
     },
     async commit(options: { message: string; noVerify: boolean }) {
       state.lastCommitMessage = options.message;

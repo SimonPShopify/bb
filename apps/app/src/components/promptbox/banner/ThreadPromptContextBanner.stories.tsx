@@ -1,10 +1,9 @@
-import { useState, type ReactNode } from "react";
 import type {
-  ThreadPullRequest,
-  WorkspaceFileStatus,
-  WorkspaceStatus,
-} from "@bb/domain";
-import type { PullRequestMergeMethod } from "@bb/server-contract";
+  PullRequest,
+  PullRequestMergeMethod,
+} from "bb-plugin-bb--github-pr-status/contract";
+import { useState, type ReactNode } from "react";
+import type { WorkspaceFileStatus, WorkspaceStatus } from "@bb/domain";
 import {
   ThreadPromptContextBanner,
   type ContextBannerMergeBaseConfig,
@@ -521,9 +520,9 @@ const childThreadsLargeFixture: ThreadPromptChildThreadsSection = {
 };
 
 function buildPullRequestFixture(
-  overrides: Partial<ThreadPullRequest> = {},
-): ThreadPullRequest {
-  const base: ThreadPullRequest = {
+  overrides: Partial<PullRequest> = {},
+): PullRequest {
+  const base: PullRequest = {
     number: 128,
     title: "Show pull request status in the prompt context banner",
     state: "open",
@@ -594,7 +593,7 @@ const mergedPullRequestFixture = buildPullRequestFixture({
 const pullRequestStateRows: readonly {
   label: string;
   hint: string;
-  pullRequest: ThreadPullRequest;
+  pullRequest: PullRequest;
 }[] = [
   {
     label: "open · checks passing",
@@ -731,7 +730,7 @@ interface RowConfig {
   environmentGone?: ThreadPromptEnvironmentGoneSection | null;
   parentThread?: ThreadPromptParentThreadSection | null;
   childThreads?: ThreadPromptChildThreadsSection | null;
-  pullRequest?: ThreadPullRequest | null;
+  pullRequest?: PullRequest | null;
   pullRequestActions?: boolean;
   pullRequestMergeMethod?: PullRequestMergeMethod;
   initiallyExpandedSection?: ThreadPromptContextBannerExpandedSection | null;

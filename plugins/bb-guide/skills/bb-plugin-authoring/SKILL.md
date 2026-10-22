@@ -69,6 +69,9 @@ the same change.
   directory.
 - Read references/frontend-sidebar-navigation.md for navigation providers
   (rail or list placement) and controls beside the sidebar toggle.
+- Read references/frontend-pull-requests.md to show a thread's GitHub pull
+  request on a row, or to migrate off
+  `experimental_useSidebarThreadPullRequest`.
 - Read references/frontend-api-index.md to check every public frontend
   runtime value and type export.
 - Read references/frontend-core-slots.md for trusted content scripts, homepage,

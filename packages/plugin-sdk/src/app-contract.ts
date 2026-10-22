@@ -1372,60 +1372,6 @@ export interface PluginSidebarThread {
   latestAttentionAt: number;
 }
 
-/**
- * The pull request for a thread's branch, narrowed to what a sidebar row
- * needs. `attention` is bb's rolled-up "does this need you" signal, so a row
- * can colour a badge without reading checks, review, and mergeability itself.
- */
-export interface PluginSidebarPullRequest {
-  /** Whether GitHub auto-merge is enabled. */
-  experimental_autoMerge: boolean;
-  /** Null when the GitHub merge queue lookup is unavailable. */
-  experimental_inMergeQueue: boolean | null;
-  experimental_checks: {
-    state: "passing" | "failing" | "pending" | "no_checks" | "unknown";
-  };
-  experimental_review: {
-    state:
-      | "approved"
-      | "changes_requested"
-      | "review_required"
-      | "review_requested"
-      | "none";
-  };
-  experimental_mergeability: {
-    state: "mergeable" | "conflicts" | "blocked" | "draft" | "unknown";
-  };
-  number: number;
-  title: string;
-  url: string;
-  state: "draft" | "open" | "merged" | "closed";
-  attention:
-    | "checks_failed"
-    | "checks_pending"
-    | "changes_requested"
-    | "review_requested"
-    | "conflicts"
-    | "blocked"
-    | "draft"
-    | "queued"
-    | "ready_to_merge"
-    | "merged"
-    | "closed"
-    | "none";
-}
-
-export interface PluginSidebarThreadPullRequestState {
-  /** True while the first lookup for this thread's environment is in flight. */
-  isLoading: boolean;
-  /**
-   * The pull request, or null when the branch has none, the thread has no
-   * environment, or the lookup could not run (a git-host hiccup). A row should
-   * treat null as "nothing to show", never as an error.
-   */
-  pullRequest: PluginSidebarPullRequest | null;
-}
-
 /** One project in the sidebar's live view. */
 export interface PluginSidebarProject {
   id: string;
@@ -4275,20 +4221,6 @@ export interface PluginSdkApp {
     readonly settings: "3_settings";
     readonly lifecycle: "4_lifecycle";
   };
-  /**
-   * The pull request for one thread's branch (see
-   * {@link PluginSidebarThreadPullRequestState}).
-   *
-   * Per row and opt-in, because it costs a git-host lookup: it is NOT on the
-   * thread payload every sidebar loads. Threads sharing an environment share
-   * one query, and the host owns the polling and staleness rules — an open PR
-   * with pending checks refreshes, a merged one does not.
-   *
-   * Experimental: see docs/api_to_audit.md.
-   */
-  experimental_useSidebarThreadPullRequest(
-    threadId: string,
-  ): PluginSidebarThreadPullRequestState;
   /**
    * Per-row drag-to-split support (see {@link PluginSidebarThreadSplit}).
    * Call it once per rendered row, like the built-in sidebar does.

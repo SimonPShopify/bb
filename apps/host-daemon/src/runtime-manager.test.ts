@@ -160,8 +160,6 @@ function createFakeWorkspace(path: string, isGitRepo = true) {
       truncated: false,
     })),
     diffPatch: vi.fn(async () => []),
-    getPullRequest: vi.fn(async () => ({ outcome: "none" as const })),
-    runPullRequestAction: vi.fn(async () => undefined),
     commit: vi.fn(async (..._args: CommitArgs) => ({
       commitSha: "commit-1",
       commitSubject: "commit",

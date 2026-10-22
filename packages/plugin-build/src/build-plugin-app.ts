@@ -140,6 +140,27 @@ async function shimModuleSource(
 }
 
 const SHIM_NAMESPACE = "bb-plugin-runtime-shim";
+
+const RETIRED_PLUGIN_SDK_APP_EXPORTS: Readonly<Record<string, string>> = {
+  experimental_useSidebarThreadPullRequest:
+    'Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery({ pluginId: "bb--github-pr-status", contract, method: "pullRequests", keys: [thread.environment.id] }). See "Migrating from experimental_useSidebarThreadPullRequest" in the bb-plugin-authoring skill.',
+};
+
+function describeRetiredPluginSdkAppImport(text: string): string | null {
+  for (const specifier of [
+    PLUGIN_SDK_APP_SPECIFIER,
+    LEGACY_PLUGIN_SDK_APP_SPECIFIER,
+  ]) {
+    const prefix = `No matching export in "${SHIM_NAMESPACE}:${specifier}" for import "`;
+    if (!text.startsWith(prefix) || !text.endsWith('"')) continue;
+    const name = text.slice(prefix.length, -1);
+    const replacement = RETIRED_PLUGIN_SDK_APP_EXPORTS[name];
+    if (replacement !== undefined) {
+      return `${name} was removed from ${specifier}. ${replacement}`;
+    }
+  }
+  return null;
+}
 const SHIM_FILTER = new RegExp(
   `^(${Object.keys(RUNTIME_SLOT_BY_SPECIFIER)
     .map((specifier) => specifier.replace(/[/@.-]/g, "\\$&"))
@@ -155,7 +176,10 @@ export function runtimeShimPlugin(pluginSdkAppModuleUrl?: string): Plugin {
         namespace: SHIM_NAMESPACE,
       }));
       build.onResolve(
-        { filter: /(^|\/)(icon|question-form-host|voice-input-textarea)(\.[jt]sx?)?$/ },
+        {
+          filter:
+            /(^|\/)(icon|question-form-host|voice-input-textarea)(\.[jt]sx?)?$/,
+        },
         (args) => {
           if (args.namespace !== "file" || !args.path.startsWith(".")) {
             return undefined;
@@ -166,6 +190,12 @@ export function runtimeShimPlugin(pluginSdkAppModuleUrl?: string): Plugin {
             : { path: specifier, namespace: SHIM_NAMESPACE };
         },
       );
+      build.onEnd((result) => {
+        for (const message of result.errors) {
+          message.text =
+            describeRetiredPluginSdkAppImport(message.text) ?? message.text;
+        }
+      });
       build.onLoad(
         { filter: /.*/, namespace: SHIM_NAMESPACE },
         async (args) => ({

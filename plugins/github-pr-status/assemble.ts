@@ -1,19 +1,19 @@
 import type {
-  GitHostPullRequest,
-  GitHostPullRequestCheck,
-  ThreadPullRequest,
-  ThreadPullRequestAttentionState,
-  ThreadPullRequestChecks,
-  ThreadPullRequestChecksState,
-  ThreadPullRequestMergeability,
-  ThreadPullRequestMergeabilityState,
-  ThreadPullRequestReview,
-  ThreadPullRequestReviewState,
-} from "@bb/domain";
+  GitHubPullRequestCheck,
+  GitHubPullRequestView,
+  PullRequest,
+  PullRequestAttentionState,
+  PullRequestChecks,
+  PullRequestChecksState,
+  PullRequestMergeability,
+  PullRequestMergeabilityState,
+  PullRequestReview,
+  PullRequestReviewState,
+} from "./contract.js";
 
 function isSameOrLaterCheck(
-  candidate: GitHostPullRequestCheck,
-  current: GitHostPullRequestCheck,
+  candidate: GitHubPullRequestCheck,
+  current: GitHubPullRequestCheck,
 ): boolean {
   if (candidate.startedAt === null) {
     return current.startedAt === null;
@@ -24,10 +24,10 @@ function isSameOrLaterCheck(
   return Date.parse(candidate.startedAt) >= Date.parse(current.startedAt);
 }
 
-function assembleThreadPullRequestChecks(
-  rawChecks: readonly GitHostPullRequestCheck[],
-): ThreadPullRequestChecks {
-  const latestChecksByName = new Map<string, GitHostPullRequestCheck>();
+function assembleChecks(
+  rawChecks: readonly GitHubPullRequestCheck[],
+): PullRequestChecks {
+  const latestChecksByName = new Map<string, GitHubPullRequestCheck>();
   for (const check of rawChecks) {
     const current = latestChecksByName.get(check.name);
     if (!current || isSameOrLaterCheck(check, current)) {
@@ -67,7 +67,7 @@ function assembleThreadPullRequestChecks(
     }
   }
 
-  let state: ThreadPullRequestChecksState;
+  let state: PullRequestChecksState;
   if (checks.length === 0) {
     state = "no_checks";
   } else if (failedCount > 0) {
@@ -89,10 +89,8 @@ function assembleThreadPullRequestChecks(
   };
 }
 
-function assembleThreadPullRequestReview(
-  raw: GitHostPullRequest,
-): ThreadPullRequestReview {
-  let state: ThreadPullRequestReviewState;
+function assembleReview(raw: GitHubPullRequestView): PullRequestReview {
+  let state: PullRequestReviewState;
   switch (raw.reviewDecision) {
     case "APPROVED":
       state = "approved";
@@ -115,10 +113,10 @@ function assembleThreadPullRequestReview(
   };
 }
 
-function assembleThreadPullRequestMergeability(
-  raw: GitHostPullRequest,
-): ThreadPullRequestMergeability {
-  let state: ThreadPullRequestMergeabilityState;
+function assembleMergeability(
+  raw: GitHubPullRequestView,
+): PullRequestMergeability {
+  let state: PullRequestMergeabilityState;
   if (raw.mergeable === "CONFLICTING" || raw.mergeStateStatus === "DIRTY") {
     state = "conflicts";
   } else if (raw.state === "OPEN" && raw.isDraft) {
@@ -146,12 +144,12 @@ function assembleThreadPullRequestMergeability(
 }
 
 function assemblePullRequestAttention(
-  state: ThreadPullRequest["state"],
-  checks: ThreadPullRequestChecks,
-  review: ThreadPullRequestReview,
-  mergeability: ThreadPullRequestMergeability,
+  state: PullRequest["state"],
+  checks: PullRequestChecks,
+  review: PullRequestReview,
+  mergeability: PullRequestMergeability,
   inMergeQueue: boolean | null,
-): ThreadPullRequestAttentionState {
+): PullRequestAttentionState {
   if (state === "merged") return "merged";
   if (state === "closed") return "closed";
   if (mergeability.state === "conflicts") return "conflicts";
@@ -173,9 +171,7 @@ function assemblePullRequestAttention(
   return "none";
 }
 
-export function assembleThreadPullRequest(
-  raw: GitHostPullRequest,
-): ThreadPullRequest {
+export function assemblePullRequest(raw: GitHubPullRequestView): PullRequest {
   const state =
     raw.state === "MERGED"
       ? "merged"
@@ -184,9 +180,9 @@ export function assembleThreadPullRequest(
         : raw.isDraft
           ? "draft"
           : "open";
-  const checks = assembleThreadPullRequestChecks(raw.checks);
-  const review = assembleThreadPullRequestReview(raw);
-  const mergeability = assembleThreadPullRequestMergeability(raw);
+  const checks = assembleChecks(raw.checks);
+  const review = assembleReview(raw);
+  const mergeability = assembleMergeability(raw);
   return {
     number: raw.number,
     title: raw.title,

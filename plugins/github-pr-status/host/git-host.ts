@@ -1,19 +1,20 @@
-import type { ExecFileException } from "node:child_process";
 import {
-  type GitHostPullRequest,
-  type GitHostPullRequestCheck,
-  type GitHostPullRequestCheckConclusion,
-  type GitHostPullRequestCheckStatus,
-  type GitHostPullRequestMergeStateStatus,
-  type GitHostPullRequestMergeable,
-  type GitHostPullRequestReviewDecision,
-  gitHostPullRequestSchema,
-} from "@bb/domain";
+  experimental_runVcsProcess as runVcsProcess,
+  experimental_sanitizeInheritedChildProcessEnv as sanitizeInheritedChildProcessEnv,
+  experimental_spawnPortableOutputProcess as spawnPortableOutputProcess,
+  type ExperimentalVcsProcessPriority,
+} from "@get-bb/plugin-sdk/host";
+import { runGit, type GitCommandResult } from "bb-environment-provider-host/git";
 import {
-  execPortableFile,
-  sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
-import { runGit, type GitCommandResult, WorkspaceError } from "./git.js";
+  gitHubPullRequestViewSchema,
+  type GitHubPullRequestCheck,
+  type GitHubPullRequestMergeStateStatus,
+  type GitHubPullRequestMergeable,
+  type GitHubPullRequestReviewDecision,
+  type GitHubPullRequestView,
+  type HostPullRequestAction,
+  type HostPullRequestLookup,
+} from "../contract.js";
 
 const GH_PR_VIEW_TIMEOUT_MS = 10_000;
 const GIT_UPSTREAM_LOOKUP_TIMEOUT_MS = 10_000;
@@ -39,27 +40,21 @@ const GH_PR_VIEW_JSON_FIELDS = [
   "mergeable",
 ].join(",");
 
-export interface GitHostCliOptions {
-  shellPath?: string;
-}
-
-interface GetPullRequestForCurrentBranchArgs extends GitHostCliOptions {
+interface GetPullRequestForCurrentBranchArgs {
   cwd: string;
   localBranch: string;
 }
 
-type GitHostPullRequestMergeMethod = "merge" | "squash" | "rebase";
-
-export type GitHostPullRequestAction =
-  | { operation: "ready" }
-  | { operation: "draft" }
-  | { operation: "merge"; method: GitHostPullRequestMergeMethod };
-
-interface RunPullRequestActionForCurrentBranchArgs extends GitHostCliOptions {
+interface RunPullRequestActionForCurrentBranchArgs {
   cwd: string;
   localBranch: string;
-  action: GitHostPullRequestAction;
+  action: HostPullRequestAction;
 }
+
+type GitHubPullRequestCheckStatus = GitHubPullRequestCheck["status"];
+type GitHubPullRequestCheckConclusion = NonNullable<
+  GitHubPullRequestCheck["conclusion"]
+>;
 
 type JsonObject = Record<string, unknown>;
 
@@ -93,7 +88,7 @@ function normalizeUppercase(value: unknown): string | null {
 
 function normalizeReviewDecision(
   value: unknown,
-): GitHostPullRequestReviewDecision | null {
+): GitHubPullRequestReviewDecision | null {
   switch (normalizeUppercase(value)) {
     case "APPROVED":
       return "APPROVED";
@@ -108,7 +103,7 @@ function normalizeReviewDecision(
 
 function normalizeMergeStateStatus(
   value: unknown,
-): GitHostPullRequestMergeStateStatus | null {
+): GitHubPullRequestMergeStateStatus | null {
   switch (normalizeUppercase(value)) {
     case "BEHIND":
       return "BEHIND";
@@ -133,7 +128,7 @@ function normalizeMergeStateStatus(
 
 function normalizeMergeable(
   value: unknown,
-): GitHostPullRequestMergeable | null {
+): GitHubPullRequestMergeable | null {
   switch (normalizeUppercase(value)) {
     case "CONFLICTING":
       return "CONFLICTING";
@@ -146,7 +141,7 @@ function normalizeMergeable(
   }
 }
 
-function normalizeCheckStatus(value: unknown): GitHostPullRequestCheckStatus {
+function normalizeCheckStatus(value: unknown): GitHubPullRequestCheckStatus {
   switch (normalizeUppercase(value)) {
     case "QUEUED":
     case "REQUESTED":
@@ -171,7 +166,7 @@ function normalizeCheckStatus(value: unknown): GitHostPullRequestCheckStatus {
 
 function normalizeCheckConclusion(
   value: unknown,
-): GitHostPullRequestCheckConclusion | null {
+): GitHubPullRequestCheckConclusion | null {
   switch (normalizeUppercase(value)) {
     case "SUCCESS":
       return "success";
@@ -229,11 +224,11 @@ function normalizeCheckName(object: JsonObject): string {
   return "Unnamed check";
 }
 
-function normalizeChecks(value: unknown): GitHostPullRequestCheck[] {
+function normalizeChecks(value: unknown): GitHubPullRequestCheck[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  const checks: GitHostPullRequestCheck[] = [];
+  const checks: GitHubPullRequestCheck[] = [];
   for (const item of value) {
     const object = asObject(item);
     if (!object) continue;
@@ -262,7 +257,7 @@ function getArrayLength(value: unknown): number {
 
 function normalizeGitHubPullRequestView(
   json: unknown,
-): GitHostPullRequest | null {
+): GitHubPullRequestView | null {
   const object = asObject(json);
   if (!object) {
     return null;
@@ -284,11 +279,13 @@ function normalizeGitHubPullRequestView(
     mergeStateStatus: normalizeMergeStateStatus(object.mergeStateStatus),
     mergeable: normalizeMergeable(object.mergeable),
   };
-  const parsed = gitHostPullRequestSchema.safeParse(candidate);
+  const parsed = gitHubPullRequestViewSchema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 }
 
-function getMergeMethodFlag(method: GitHostPullRequestMergeMethod): string {
+function getMergeMethodFlag(
+  method: Extract<HostPullRequestAction, { operation: "merge" }>["method"],
+): string {
   switch (method) {
     case "merge":
       return "--merge";
@@ -300,7 +297,7 @@ function getMergeMethodFlag(method: GitHostPullRequestMergeMethod): string {
 }
 
 function buildPullRequestActionArgs(
-  action: GitHostPullRequestAction,
+  action: HostPullRequestAction,
   selector: string | null,
 ): string[] {
   const target = selector ? [selector] : [];
@@ -314,42 +311,129 @@ function buildPullRequestActionArgs(
   }
 }
 
-function getExecFileException(error: unknown): ExecFileException | undefined {
-  return error instanceof Error ? (error as ExecFileException) : undefined;
-}
-
-function trimGhOutput(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function createGitHostCommandFailedError(
-  args: string[],
-  error: unknown,
-): WorkspaceError {
-  const execError = getExecFileException(error);
-  if (execError?.code === "ENOENT") {
-    return new WorkspaceError(
-      "git_host_cli_unavailable",
-      "GitHub CLI is not available",
-      { cause: error },
-    );
+class GhCommandError extends Error {
+  constructor(
+    readonly reason: "missing" | "timeout" | "failed",
+    readonly stdout: string,
+    readonly stderr: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "GhCommandError";
   }
-  const stderr = trimGhOutput(execError?.stderr);
-  const stdout = trimGhOutput(execError?.stdout);
-  const detail =
-    stderr || stdout || (error instanceof Error ? error.message : "");
-  return new WorkspaceError(
-    "git_host_command_failed",
-    detail
-      ? `gh ${args.join(" ")} failed: ${detail}`
-      : `gh ${args.join(" ")} failed`,
-    { cause: error },
-  );
 }
 
-export function parseGitHostPullRequest(
+function ghFailureDetail(error: unknown): string {
+  if (error instanceof GhCommandError) {
+    return error.stderr.trim() || error.stdout.trim() || error.message;
+  }
+  return error instanceof Error ? error.message : "";
+}
+
+function describeGhActionFailure(args: string[], error: unknown): string {
+  if (error instanceof GhCommandError && error.reason === "missing") {
+    return "GitHub CLI is not available";
+  }
+  const detail = ghFailureDetail(error);
+  return detail
+    ? `gh ${args.join(" ")} failed: ${detail}`
+    : `gh ${args.join(" ")} failed`;
+}
+
+function runGhAdmitted(
+  args: string[],
+  options: { cwd: string; timeoutMs: number; maxBuffer: number },
+): Promise<{ stdout: string }> {
+  return new Promise((resolve, reject) => {
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let size = 0;
+    let timedOut = false;
+    let overflowed = false;
+    let settled = false;
+    const child = spawnPortableOutputProcess({
+      command: "gh",
+      args,
+      cwd: options.cwd,
+      env: sanitizeInheritedChildProcessEnv({ env: process.env }),
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, options.timeoutMs);
+    const collect = (chunks: Buffer[]) => (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > options.maxBuffer) {
+        overflowed = true;
+        child.kill("SIGKILL");
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const finish = (run: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      run();
+    };
+    child.stdout.on("data", collect(stdout));
+    child.stderr.on("data", collect(stderr));
+    child.on("error", (error: NodeJS.ErrnoException) => {
+      finish(() =>
+        reject(
+          new GhCommandError(
+            error.code === "ENOENT" ? "missing" : "failed",
+            "",
+            "",
+            error.message,
+          ),
+        ),
+      );
+    });
+    child.on("close", (code) => {
+      const out = Buffer.concat(stdout).toString("utf8");
+      const err = Buffer.concat(stderr).toString("utf8");
+      finish(() => {
+        if (timedOut) {
+          reject(new GhCommandError("timeout", out, err, "timed out"));
+        } else if (overflowed) {
+          reject(
+            new GhCommandError(
+              "failed",
+              "",
+              "",
+              `produced more than ${options.maxBuffer} bytes of output`,
+            ),
+          );
+        } else if (code === 0) {
+          resolve({ stdout: out });
+        } else {
+          reject(
+            new GhCommandError("failed", out, err, `exited with code ${code}`),
+          );
+        }
+      });
+    });
+  });
+}
+
+function runGh(
+  args: string[],
+  options: {
+    cwd: string;
+    priority: ExperimentalVcsProcessPriority;
+    timeoutMs: number;
+    maxBuffer: number;
+  },
+): Promise<{ stdout: string }> {
+  return runVcsProcess("gh", args, () => runGhAdmitted(args, options), {
+    priority: options.priority,
+  });
+}
+
+export function parseGitHubPullRequestView(
   stdout: string,
-): GitHostPullRequest | null {
+): GitHubPullRequestView | null {
   const trimmed = stdout.trim();
   if (!trimmed) {
     return null;
@@ -363,17 +447,12 @@ export function parseGitHostPullRequest(
   return normalizeGitHubPullRequestView(json);
 }
 
-export type GitHostPullRequestLookup =
-  | { outcome: "found"; pullRequest: GitHostPullRequest }
-  | { outcome: "none" }
-  | { outcome: "unavailable"; message: string };
-
 const GH_NO_PULL_REQUEST_PATTERN = /no pull requests found for branch/iu;
 
 type PullRequestTargetLookup =
   | { outcome: "current-branch" }
   | { outcome: "upstream-branch"; selector: string }
-  | Extract<GitHostPullRequestLookup, { outcome: "unavailable" }>;
+  | Extract<HostPullRequestLookup, { outcome: "unavailable" }>;
 
 interface GitRemoteRepository {
   host: string;
@@ -383,21 +462,17 @@ interface GitRemoteRepository {
 function ghCommandUnavailable(
   ghArgs: string[],
   error: unknown,
-): Extract<GitHostPullRequestLookup, { outcome: "unavailable" }> {
-  const execError = getExecFileException(error);
-  if (execError?.code === "ENOENT") {
+): Extract<HostPullRequestLookup, { outcome: "unavailable" }> {
+  if (error instanceof GhCommandError && error.reason === "missing") {
     return { outcome: "unavailable", message: "GitHub CLI is not available" };
   }
-  if (execError?.killed) {
+  if (error instanceof GhCommandError && error.reason === "timeout") {
     return {
       outcome: "unavailable",
       message: `gh ${ghArgs.slice(0, 2).join(" ")} timed out after ${GH_PR_VIEW_TIMEOUT_MS}ms`,
     };
   }
-  const detail =
-    trimGhOutput(execError?.stderr) ||
-    trimGhOutput(execError?.stdout) ||
-    (error instanceof Error ? error.message : "");
+  const detail = ghFailureDetail(error);
   const command = `gh ${ghArgs.slice(0, 2).join(" ")}`;
   return {
     outcome: "unavailable",
@@ -407,9 +482,11 @@ function ghCommandUnavailable(
 
 function classifyPullRequestViewError(
   error: unknown,
-): Extract<GitHostPullRequestLookup, { outcome: "none" | "unavailable" }> {
-  const execError = getExecFileException(error);
-  if (GH_NO_PULL_REQUEST_PATTERN.test(trimGhOutput(execError?.stderr))) {
+): Extract<HostPullRequestLookup, { outcome: "none" | "unavailable" }> {
+  if (
+    error instanceof GhCommandError &&
+    GH_NO_PULL_REQUEST_PATTERN.test(error.stderr)
+  ) {
     return { outcome: "none" };
   }
   return ghCommandUnavailable(["pr", "view"], error);
@@ -418,7 +495,7 @@ function classifyPullRequestViewError(
 function gitUpstreamLookupUnavailable(
   message: string,
   detail: string,
-): Extract<GitHostPullRequestLookup, { outcome: "unavailable" }> {
+): Extract<HostPullRequestLookup, { outcome: "unavailable" }> {
   return {
     outcome: "unavailable",
     message: detail ? `${message}: ${detail}` : message,
@@ -508,7 +585,6 @@ async function getPullRequestTarget(
       ],
       {
         cwd: args.cwd,
-        ...(args.shellPath !== undefined ? { shellPath: args.shellPath } : {}),
         allowFailure: true,
         timeoutMs: GIT_UPSTREAM_LOOKUP_TIMEOUT_MS,
       },
@@ -578,7 +654,7 @@ async function getPullRequestTarget(
 
 export async function getPullRequestForCurrentBranch(
   args: GetPullRequestForCurrentBranchArgs,
-): Promise<GitHostPullRequestLookup> {
+): Promise<HostPullRequestLookup> {
   const target = await getPullRequestTarget(args);
   if (target.outcome === "unavailable") {
     return target;
@@ -592,20 +668,16 @@ export async function getPullRequestForCurrentBranch(
   ];
   let stdout: string;
   try {
-    ({ stdout } = await execPortableFile("gh", ghArgs, {
+    ({ stdout } = await runGh(ghArgs, {
       priority: "background",
       cwd: args.cwd,
-      env: sanitizeInheritedChildProcessEnv({
-        env: process.env,
-        ...(args.shellPath !== undefined ? { shellPath: args.shellPath } : {}),
-      }),
-      timeout: GH_PR_VIEW_TIMEOUT_MS,
+      timeoutMs: GH_PR_VIEW_TIMEOUT_MS,
       maxBuffer: GH_PR_VIEW_MAX_BUFFER_BYTES,
     }));
   } catch (error) {
     return classifyPullRequestViewError(error);
   }
-  const pullRequest = parseGitHostPullRequest(stdout);
+  const pullRequest = parseGitHubPullRequestView(stdout);
   if (!pullRequest) {
     return {
       outcome: "unavailable",
@@ -614,8 +686,7 @@ export async function getPullRequestForCurrentBranch(
   }
   if (pullRequest.state === "OPEN" && !pullRequest.isDraft) {
     try {
-      const { stdout: queueOutput } = await execPortableFile(
-        "gh",
+      const { stdout: queueOutput } = await runGh(
         [
           "api",
           "graphql",
@@ -627,14 +698,9 @@ export async function getPullRequestForCurrentBranch(
           `url=${pullRequest.url}`,
         ],
         {
+          priority: "background",
           cwd: args.cwd,
-          env: sanitizeInheritedChildProcessEnv({
-            env: process.env,
-            ...(args.shellPath !== undefined
-              ? { shellPath: args.shellPath }
-              : {}),
-          }),
-          timeout: GH_PR_VIEW_TIMEOUT_MS,
+          timeoutMs: GH_PR_VIEW_TIMEOUT_MS,
           maxBuffer: GH_PR_VIEW_MAX_BUFFER_BYTES,
         },
       );
@@ -655,27 +721,24 @@ export async function getPullRequestForCurrentBranch(
 
 export async function runPullRequestActionForCurrentBranch(
   args: RunPullRequestActionForCurrentBranchArgs,
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const target = await getPullRequestTarget(args);
   if (target.outcome === "unavailable") {
-    throw new WorkspaceError("git_host_command_failed", target.message);
+    return { ok: false, message: target.message };
   }
   const ghArgs = buildPullRequestActionArgs(
     args.action,
     target.outcome === "upstream-branch" ? target.selector : null,
   );
   try {
-    await execPortableFile("gh", ghArgs, {
+    await runGh(ghArgs, {
       priority: "interactive",
       cwd: args.cwd,
-      env: sanitizeInheritedChildProcessEnv({
-        env: process.env,
-        ...(args.shellPath !== undefined ? { shellPath: args.shellPath } : {}),
-      }),
-      timeout: GH_PR_ACTION_TIMEOUT_MS,
+      timeoutMs: GH_PR_ACTION_TIMEOUT_MS,
       maxBuffer: GH_PR_ACTION_MAX_BUFFER_BYTES,
     });
   } catch (error) {
-    throw createGitHostCommandFailedError(ghArgs, error);
+    return { ok: false, message: describeGhActionFailure(ghArgs, error) };
   }
+  return { ok: true };
 }

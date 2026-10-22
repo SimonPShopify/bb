@@ -24,6 +24,7 @@ import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import Folder02Icon from "@hugeicons/core-free-icons/Folder02Icon";
 import FolderGitTwoIcon from "@hugeicons/core-free-icons/FolderGit2Icon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
+import GitPullRequestIcon from "@hugeicons/core-free-icons/GitPullRequestIcon";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
 import GridViewIcon from "@hugeicons/core-free-icons/GridViewIcon";
 import InternetIcon from "@hugeicons/core-free-icons/InternetIcon";
@@ -73,6 +74,7 @@ const PLUGIN_ICONS: Readonly<Record<string, IconSvgElement | undefined>> = {
   FolderGit: FolderGitTwoIcon,
   FolderOpen: Folder02Icon,
   GitBranch: GitBranchIcon,
+  GitPullRequest: GitPullRequestIcon,
   Github: GithubIcon,
   Globe: InternetIcon,
   GridView: GridViewIcon,

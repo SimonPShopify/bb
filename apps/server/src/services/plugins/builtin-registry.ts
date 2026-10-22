@@ -166,6 +166,11 @@ export const BUILTIN_PLUGINS = [
     defaultEnabled: true,
   },
   {
+    name: "github-pr-status",
+    pluginId: "bb--github-pr-status",
+    defaultEnabled: true,
+  },
+  {
     name: "secrets",
     pluginId: "secrets",
     defaultEnabled: true,

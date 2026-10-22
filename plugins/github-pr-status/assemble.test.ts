@@ -1,10 +1,10 @@
-import type { GitHostPullRequest } from "@bb/domain";
+import type { GitHubPullRequestView } from "./contract.js";
 import { describe, expect, it } from "vitest";
-import { assembleThreadPullRequest } from "./pull-request.js";
+import { assemblePullRequest } from "./assemble.js";
 
 function rawPullRequest(
-  overrides: Partial<GitHostPullRequest> = {},
-): GitHostPullRequest {
+  overrides: Partial<GitHubPullRequestView> = {},
+): GitHubPullRequestView {
   return {
     number: 42,
     title: "Add pull request section",
@@ -25,7 +25,7 @@ function rawPullRequest(
   };
 }
 
-describe("assembleThreadPullRequest", () => {
+describe("assemblePullRequest", () => {
   it.each([
     [
       "pending checks",
@@ -46,7 +46,7 @@ describe("assembleThreadPullRequest", () => {
     "shows %s instead of generic branch protection",
     (_name, reviewDecision, checks, attention) => {
       expect(
-        assembleThreadPullRequest(
+        assemblePullRequest(
           rawPullRequest({
             mergeStateStatus: "BLOCKED",
             reviewDecision,
@@ -112,18 +112,18 @@ describe("assembleThreadPullRequest", () => {
     },
   ] satisfies {
     name: string;
-    overrides: Partial<GitHostPullRequest>;
+    overrides: Partial<GitHubPullRequestView>;
     attention: string;
   }[])("keeps $name precedence", ({ overrides, attention }) => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({ mergeStateStatus: "BLOCKED", ...overrides }),
       ).attention,
     ).toBe(attention);
   });
 
   it("maps an open non-draft PR to 'open' and carries number/title/url", () => {
-    expect(assembleThreadPullRequest(rawPullRequest())).toEqual({
+    expect(assemblePullRequest(rawPullRequest())).toEqual({
       number: 42,
       title: "Add pull request section",
       url: "https://github.com/acme/bb/pull/42",
@@ -155,29 +155,27 @@ describe("assembleThreadPullRequest", () => {
 
   it("maps MERGED to 'merged' regardless of isDraft", () => {
     expect(
-      assembleThreadPullRequest(rawPullRequest({ state: "MERGED" }))?.state,
+      assemblePullRequest(rawPullRequest({ state: "MERGED" }))?.state,
     ).toBe("merged");
     expect(
-      assembleThreadPullRequest(
-        rawPullRequest({ state: "MERGED", isDraft: true }),
-      )?.state,
+      assemblePullRequest(rawPullRequest({ state: "MERGED", isDraft: true }))
+        ?.state,
     ).toBe("merged");
   });
 
   it("maps CLOSED to 'closed' regardless of isDraft", () => {
     expect(
-      assembleThreadPullRequest(rawPullRequest({ state: "CLOSED" }))?.state,
+      assemblePullRequest(rawPullRequest({ state: "CLOSED" }))?.state,
     ).toBe("closed");
     expect(
-      assembleThreadPullRequest(
-        rawPullRequest({ state: "CLOSED", isDraft: true }),
-      )?.state,
+      assemblePullRequest(rawPullRequest({ state: "CLOSED", isDraft: true }))
+        ?.state,
     ).toBe("closed");
   });
 
   it("summarizes failed checks as attention", () => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({
           checks: [
             {
@@ -211,7 +209,7 @@ describe("assembleThreadPullRequest", () => {
 
   it("treats unstable merge state with pending checks as checks pending", () => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({
           mergeStateStatus: "UNSTABLE",
           mergeable: "MERGEABLE",
@@ -245,7 +243,7 @@ describe("assembleThreadPullRequest", () => {
 
   it("summarizes review requests and conflicts", () => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({
           reviewDecision: "REVIEW_REQUIRED",
           reviewRequestCount: 2,
@@ -269,7 +267,7 @@ describe("assembleThreadPullRequest", () => {
 
   it("uses the latest run for each check name", () => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({
           mergeStateStatus: "BLOCKED",
           mergeable: "UNKNOWN",
@@ -305,7 +303,7 @@ describe("assembleThreadPullRequest", () => {
 
   it("marks passing mergeable PRs as ready to merge", () => {
     expect(
-      assembleThreadPullRequest(
+      assemblePullRequest(
         rawPullRequest({
           checks: [
             {

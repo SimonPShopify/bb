@@ -11,13 +11,6 @@ import type {
 import path from "node:path";
 import { pathExists } from "@bb/process-utils";
 import {
-  getPullRequestForCurrentBranch,
-  runPullRequestActionForCurrentBranch,
-  type GitHostCliOptions,
-  type GitHostPullRequestAction,
-  type GitHostPullRequestLookup,
-} from "./git-host.js";
-import {
   createTempDir,
   ensureGitRepo,
   getCurrentBranch,
@@ -77,8 +70,6 @@ export interface CommitResult {
   commitSha: string;
   commitSubject: string;
 }
-
-export type PullRequestActionOptions = GitHostPullRequestAction;
 
 type DiffSummary = {
   diff: string;
@@ -580,47 +571,6 @@ export class Workspace {
     return getCurrentBranch(this.path, this.gitProcessOptions);
   }
 
-  async getPullRequest(
-    options: GitHostCliOptions = {},
-  ): Promise<GitHostPullRequestLookup> {
-    if (!(await this.exists)) {
-      return {
-        outcome: "unavailable",
-        message: `Workspace path no longer exists: ${this.path}`,
-      };
-    }
-    const branch = await getCurrentBranch(this.path, this.gitProcessOptions);
-    if (!branch) {
-      return { outcome: "none" };
-    }
-    return getPullRequestForCurrentBranch({
-      cwd: this.path,
-      localBranch: branch,
-      ...this.gitProcessOptions,
-      ...options,
-    });
-  }
-
-  async runPullRequestAction(
-    action: PullRequestActionOptions,
-    options: GitHostCliOptions = {},
-  ): Promise<void> {
-    const branch = await getCurrentBranch(this.path, this.gitProcessOptions);
-    if (!branch) {
-      throw new WorkspaceError(
-        "invalid_request",
-        "Cannot update pull request from a detached workspace",
-      );
-    }
-    return runPullRequestActionForCurrentBranch({
-      cwd: this.path,
-      localBranch: branch,
-      action,
-      ...this.gitProcessOptions,
-      ...options,
-    });
-  }
-
   async getStatus(options: StatusOptions = {}): Promise<WorkspaceStatus> {
     const maxFiles = options.maxFiles;
     if (maxFiles !== undefined) {
@@ -698,11 +648,9 @@ export class Workspace {
           );
     }
     const [diffOutput, defaultBranch, mergeBaseData] = await otherReads;
-    const {
-      entries,
-      headOid,
-      headBranch,
-    } = parsePorcelainV2StatusZ(statusOutput.stdout);
+    const { entries, headOid, headBranch } = parsePorcelainV2StatusZ(
+      statusOutput.stdout,
+    );
     const checkout: GitCheckoutRef =
       headBranch === null
         ? headOid === null
@@ -1090,7 +1038,11 @@ export class Workspace {
       computation
         .then(({ status, retryable }) => {
           if (status && !retryable) {
-            mergeBaseStatusCache.set(key, status, JSON.stringify(status).length);
+            mergeBaseStatusCache.set(
+              key,
+              status,
+              JSON.stringify(status).length,
+            );
           }
         })
         .catch(() => undefined)
@@ -1110,45 +1062,44 @@ export class Workspace {
     maxFiles: number | undefined,
     timeoutMs?: number,
   ): Promise<MergeBaseStatusComputation> {
-    const [mergeBaseRef, history, nameStatus, numstat] =
-      await Promise.all([
-        this.runGit(["merge-base", baseRevision, headRevision], {
-          cwd: this.path,
-          timeoutMs,
-          allowFailure: true,
-        }).then((result) =>
-          result.exitCode === 0 ? result.stdout.trim() : undefined,
-        ),
-        this.runGit(
-          [
-            "log",
-            "--left-right",
-            "--format=%m%x1f%H%x1f%h%x1f%s%x1f%an%x1f%at",
-            `${baseRevision}...${headRevision}`,
-          ],
-          { cwd: this.path, allowFailure: true, timeoutMs },
-        ),
-        this.runGit(
-          [
-            "diff",
-            "--no-ext-diff",
-            "--name-status",
-            "-z",
-            `${baseRevision}...${headRevision}`,
-          ],
-          { cwd: this.path, allowFailure: true, timeoutMs },
-        ),
-        this.runGit(
-          [
-            "diff",
-            "--no-ext-diff",
-            "--numstat",
-            "-z",
-            `${baseRevision}...${headRevision}`,
-          ],
-          { cwd: this.path, allowFailure: true, timeoutMs },
-        ),
-      ]);
+    const [mergeBaseRef, history, nameStatus, numstat] = await Promise.all([
+      this.runGit(["merge-base", baseRevision, headRevision], {
+        cwd: this.path,
+        timeoutMs,
+        allowFailure: true,
+      }).then((result) =>
+        result.exitCode === 0 ? result.stdout.trim() : undefined,
+      ),
+      this.runGit(
+        [
+          "log",
+          "--left-right",
+          "--format=%m%x1f%H%x1f%h%x1f%s%x1f%an%x1f%at",
+          `${baseRevision}...${headRevision}`,
+        ],
+        { cwd: this.path, allowFailure: true, timeoutMs },
+      ),
+      this.runGit(
+        [
+          "diff",
+          "--no-ext-diff",
+          "--name-status",
+          "-z",
+          `${baseRevision}...${headRevision}`,
+        ],
+        { cwd: this.path, allowFailure: true, timeoutMs },
+      ),
+      this.runGit(
+        [
+          "diff",
+          "--no-ext-diff",
+          "--numstat",
+          "-z",
+          `${baseRevision}...${headRevision}`,
+        ],
+        { cwd: this.path, allowFailure: true, timeoutMs },
+      ),
+    ]);
     if (history.exitCode !== 0) {
       if (isMissingHeadRevisionError(history.stderr)) {
         return {

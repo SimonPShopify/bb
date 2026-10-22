@@ -1,3 +1,4 @@
+import type { PullRequest } from "bb-plugin-bb--github-pr-status/contract";
 import { EnvironmentProviderIcon } from "@/components/plugin/EnvironmentProviderIcon";
 import {
   useCallback,
@@ -24,7 +25,6 @@ import type {
   Thread,
   ThreadListEntry,
   ThreadParentNotifications,
-  ThreadPullRequest,
   WorkspaceStatus,
 } from "@bb/domain";
 import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
@@ -518,7 +518,7 @@ export function BranchRow({ workspaceStatus }: BranchRowProps) {
 }
 
 interface PullRequestRowProps {
-  pullRequest: ThreadPullRequest | null;
+  pullRequest: PullRequest | null;
 }
 
 export function PullRequestRow({ pullRequest }: PullRequestRowProps) {
@@ -861,7 +861,7 @@ export interface ThreadMetadataContentProps {
   workspaceStatus: WorkspaceStatus | undefined;
   workspaceStatusError: Error | null;
   workspaceUnavailable?: WorkspaceResolutionFailure;
-  pullRequest: ThreadPullRequest | null;
+  pullRequest: PullRequest | null;
   selectedMergeBaseBranch: string | undefined;
   mergeBaseBranchRef?: GitBranchRefClassification | null;
   mergeBaseBranchOptions: readonly string[] | undefined;

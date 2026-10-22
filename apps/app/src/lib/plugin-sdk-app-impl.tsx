@@ -133,7 +133,6 @@ export const pluginSdkAppImplementation = {
   experimental_ThreadActionsContextMenu: ThreadActionsContextMenu,
   experimental_PluginRpcCallError,
   experimental_THREAD_ACTION_GROUPS,
-  experimental_useSidebarThreadPullRequest: useSidebarThreadPullRequest,
   experimental_useSidebarThreadSplit: useSidebarThreadSplit,
   experimental_useSidebarNavigation: useSidebarNavigation,
   experimental_useSidebarNavigationSplit: useSidebarNavigationSplit,
@@ -153,6 +152,10 @@ export const pluginSdkAppImplementation = {
   experimental_copyToClipboard: copyToClipboard,
   experimental_saveFile: saveFile,
 } satisfies PluginSdkApp;
+
+export const retiredPluginSdkAppMembers = {
+  experimental_useSidebarThreadPullRequest: useSidebarThreadPullRequest,
+};
 
 function PluginMarkdown({
   content,
