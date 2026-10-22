@@ -639,7 +639,7 @@ describe("PluginPendingInteractionComposer", () => {
         "OpenRouter API key",
       );
       const destination = screen.getByRole("button", {
-        name: `Destination ${secretRequest.data.destination.path}`,
+        name: `Writes to ${secretRequest.data.destination.path}`,
       });
       expect(destination.getAttribute("aria-expanded")).toBe("false");
       expect(destination.textContent).toContain(

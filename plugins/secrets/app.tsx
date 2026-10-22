@@ -119,7 +119,7 @@ function SecretRequestInteraction({
           <button
             type="button"
             aria-expanded={pathExpanded}
-            aria-label={`Destination ${payload.destination.path}`}
+            aria-label={`Writes to ${payload.destination.path}`}
             title={payload.destination.path}
             onClick={() => setPathExpanded((expanded) => !expanded)}
             className="min-w-0 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -236,7 +236,7 @@ function SecretRequestInteraction({
           "flex items-center justify-between gap-2",
           compact
             ? "mt-3"
-            : "sticky -bottom-3 z-10 -mb-3 mt-1 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
+            : "sticky -bottom-3 z-10 -mb-3 mt-4 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
         <Button
