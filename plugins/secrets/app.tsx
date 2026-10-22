@@ -241,7 +241,7 @@ function SecretRequestInteraction({
         className={cn(
           "flex items-center justify-between gap-2",
           compact
-            ? "sticky -bottom-1 z-10 -mb-1 mt-3 bg-surface-raised-solid pb-1 max-md:pointer-coarse:mt-2.5"
+            ? "sticky -bottom-1 z-10 -mb-1 mt-3 bg-popover pb-1 max-md:pointer-coarse:mt-2.5"
             : "sticky -bottom-3 z-10 -mb-3 mt-4 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
