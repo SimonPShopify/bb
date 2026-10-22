@@ -660,8 +660,12 @@ describe("PluginPendingInteractionComposer", () => {
       );
       const footer = screen.getByRole("button", {
         name: "Add secrets",
-      }).parentElement?.parentElement;
-      expect(footer?.contains(destination)).toBe(true);
+      }).parentElement;
+      expect(footer?.contains(destination)).toBe(false);
+      expect(
+        destination.compareDocumentPosition(input) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(footer?.className.split(" ")).toEqual(
         expect.arrayContaining(["sticky", "max-md:pointer-coarse:mt-2.5"]),
       );
@@ -692,8 +696,13 @@ describe("PluginPendingInteractionComposer", () => {
       );
       const submit = document.querySelector('form button[type="submit"]');
       expect(submit?.className.split(" ")).not.toContain("w-full");
-      const footer = submit?.parentElement?.parentElement;
-      expect(footer?.contains(destination)).toBe(true);
+      const footer = submit?.parentElement;
+      expect(footer?.contains(destination)).toBe(false);
+      expect(
+        destination.compareDocumentPosition(
+          screen.getByLabelText("OPENROUTER_API_KEY"),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       const actions = footer?.className.split(" ") ?? [];
       expect(actions).toContain("sticky");
       expect(actions).not.toContain("flex-col-reverse");

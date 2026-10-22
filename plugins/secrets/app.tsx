@@ -129,14 +129,46 @@ function SecretRequestInteraction({
           {payload.purpose}
         </p>
       ) : null}
+      <button
+        type="button"
+        aria-expanded={pathExpanded}
+        aria-label={`Saves to ${payload.destination.path}`}
+        title={payload.destination.path}
+        onClick={() => setPathExpanded((expanded) => !expanded)}
+        className={cn(
+          "flex w-full min-w-0 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          textInset,
+          payload.purpose && (compact ? "mt-2" : "mt-3"),
+        )}
+      >
+        <HugeiconsIcon
+          icon={File01Icon}
+          className="size-3.5 shrink-0"
+          aria-hidden="true"
+        />
+        <span className="shrink-0">Saves to</span>
+        {pathExpanded ? (
+          <span className="max-h-12 min-w-0 overflow-y-auto break-all text-foreground">
+            {payload.destination.path}
+          </span>
+        ) : (
+          <>
+            <span className="min-w-0 truncate font-medium text-foreground">
+              {destinationName}
+            </span>
+            <span dir="rtl" className="min-w-12 flex-1 truncate">
+              {`\u200e${destinationFolder}\u200e`}
+            </span>
+          </>
+        )}
+      </button>
 
       <div
         className={cn(
           compact
             ? "space-y-3 max-md:pointer-coarse:space-y-2.5"
             : "space-y-3.5",
-          payload.purpose &&
-            (compact ? "mt-3 max-md:pointer-coarse:mt-2.5" : "mt-4"),
+          compact ? "mt-4 max-md:pointer-coarse:mt-3" : "mt-5",
         )}
       >
         {payload.fields.map((field) => {
@@ -231,65 +263,31 @@ function SecretRequestInteraction({
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-x-3 gap-y-2",
+          "flex items-center justify-between gap-2",
           compact
             ? "sticky -bottom-1 z-10 -mb-1 mt-3 bg-popover pb-1 max-md:pointer-coarse:mt-2.5"
             : "sticky -bottom-3 z-10 -mb-3 mt-4 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
-        <button
+        <Button
           type="button"
-          aria-expanded={pathExpanded}
-          aria-label={`Saves to ${payload.destination.path}`}
-          title={payload.destination.path}
-          onClick={() => setPathExpanded((expanded) => !expanded)}
-          className={cn(
-            "flex min-w-0 grow basis-72 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            textInset,
-          )}
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => void cancelRequest()}
         >
-          <HugeiconsIcon
-            icon={File01Icon}
-            className="size-3.5 shrink-0"
-            aria-hidden="true"
-          />
-          <span className="shrink-0">Saves to</span>
-          {pathExpanded ? (
-            <span className="max-h-12 min-w-0 overflow-y-auto break-all text-foreground">
-              {payload.destination.path}
-            </span>
-          ) : (
-            <>
-              <span className="min-w-0 truncate font-medium text-foreground">
-                {destinationName}
-              </span>
-              <span dir="rtl" className="min-w-12 flex-1 truncate">
-                {`\u200e${destinationFolder}\u200e`}
-              </span>
-            </>
-          )}
-        </button>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => void cancelRequest()}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" size="sm" disabled={busy}>
-            {pendingAction === "submit" ? (
-              <HugeiconsIcon
-                icon={Loading03Icon}
-                className="size-3 animate-spin"
-                aria-hidden="true"
-              />
-            ) : null}
-            Add secrets
-          </Button>
-        </div>
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={busy}>
+          {pendingAction === "submit" ? (
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              className="size-3 animate-spin"
+              aria-hidden="true"
+            />
+          ) : null}
+          Add secrets
+        </Button>
       </div>
     </form>
   );
