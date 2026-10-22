@@ -145,8 +145,8 @@ function SecretRequestInteraction({
           </span>
         ) : (
           <>
-            <span className="flex min-w-0 font-medium text-foreground">
-              <span className="truncate">{destination.stem}</span>
+            <span className="flex font-medium text-foreground">
+              <span className="min-w-[1.5ch] truncate">{destination.stem}</span>
               {destination.extension ? (
                 <span className="shrink-0">{destination.extension}</span>
               ) : null}
@@ -154,7 +154,7 @@ function SecretRequestInteraction({
             {destinationFolder === null ? null : (
               <>
                 <span className="shrink-0">in</span>
-                <span className="max-w-[40%] shrink-0 truncate">
+                <span className="min-w-0 max-w-[40%] shrink-[0.1] truncate">
                   {destinationFolder}
                 </span>
               </>
