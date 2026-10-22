@@ -30,6 +30,7 @@ function SecretRequestInteraction({
   );
   const [values, setValues] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [pathExpanded, setPathExpanded] = useState(false);
   const [pendingAction, setPendingAction] = useState<
     "submit" | "cancel" | null
   >(null);
@@ -115,13 +116,27 @@ function SecretRequestInteraction({
         ) : null}
         <p className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
           <span className="shrink-0">Writes to</span>
-          <code
-            dir="rtl"
+          <button
+            type="button"
+            aria-expanded={pathExpanded}
+            aria-label={`Destination ${payload.destination.path}`}
             title={payload.destination.path}
-            className="block w-min min-w-0 max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
+            onClick={() => setPathExpanded((expanded) => !expanded)}
+            className="min-w-0 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
-          </code>
+            {pathExpanded ? (
+              <code className="block break-all rounded bg-surface-raised px-1 py-px font-mono text-foreground">
+                {payload.destination.path}
+              </code>
+            ) : (
+              <code
+                dir="rtl"
+                className="block w-min max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
+              >
+                {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
+              </code>
+            )}
+          </button>
         </p>
       </div>
 

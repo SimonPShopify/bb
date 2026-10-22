@@ -621,13 +621,16 @@ describe("PluginPendingInteractionComposer", () => {
       expect(screen.getByText("OpenRouter API key").getAttribute("title")).toBe(
         "OpenRouter API key",
       );
-      const destination = screen.getByTitle(
-        secretRequest.data.destination.path,
-      );
-      expect(destination.getAttribute("dir")).toBe("rtl");
+      const destination = screen.getByRole("button", {
+        name: `Destination ${secretRequest.data.destination.path}`,
+      });
+      expect(destination.getAttribute("aria-expanded")).toBe("false");
       expect(destination.textContent).toContain(
         "~/projects/droplet-monitor/.env",
       );
+      fireEvent.click(destination);
+      expect(destination.getAttribute("aria-expanded")).toBe("true");
+      expect(destination.textContent).toBe(secretRequest.data.destination.path);
       const input = screen.getByLabelText("OPENROUTER_API_KEY");
       expect(input.className.split(" ")).toEqual(
         expect.arrayContaining([
