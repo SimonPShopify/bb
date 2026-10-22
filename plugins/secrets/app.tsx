@@ -98,11 +98,12 @@ function SecretRequestInteraction({
     payload.destination.path.lastIndexOf("/"),
     payload.destination.path.lastIndexOf("\\"),
   );
-  const destinationName = payload.destination.path.slice(
+  const destinationTail = payload.destination.path.slice(
     destinationSeparator + 1,
   );
+  const destinationName = destinationTail || payload.destination.path;
   const destinationFolder =
-    destinationSeparator < 0
+    destinationSeparator < 0 || !destinationTail
       ? ""
       : formatHomePathForDisplay(
           payload.destination.path.slice(0, Math.max(destinationSeparator, 1)),
@@ -243,7 +244,7 @@ function SecretRequestInteraction({
           title={payload.destination.path}
           onClick={() => setPathExpanded((expanded) => !expanded)}
           className={cn(
-            "flex min-w-0 grow basis-48 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "flex min-w-0 grow basis-72 items-center gap-1.5 rounded text-left text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             textInset,
           )}
         >
@@ -254,15 +255,15 @@ function SecretRequestInteraction({
           />
           <span className="shrink-0">Saves to</span>
           {pathExpanded ? (
-            <span className="min-w-0 break-all text-foreground">
+            <span className="max-h-12 min-w-0 overflow-y-auto break-all text-foreground">
               {payload.destination.path}
             </span>
           ) : (
             <>
-              <span className="min-w-0 max-w-[60%] truncate font-medium text-foreground">
+              <span className="min-w-0 truncate font-medium text-foreground">
                 {destinationName}
               </span>
-              <span dir="rtl" className="min-w-0 flex-1 truncate">
+              <span dir="rtl" className="min-w-12 flex-1 truncate">
                 {`\u200e${destinationFolder}\u200e`}
               </span>
             </>
