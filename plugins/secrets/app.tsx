@@ -42,7 +42,7 @@ function SecretRequestInteraction({
   if (!parsed.success) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           This secret request is invalid.
         </p>
         <Button
@@ -102,7 +102,7 @@ function SecretRequestInteraction({
         void submitValues();
       }}
     >
-      <div className={cn("space-y-1", textInset)}>
+      <div className={cn("space-y-1.5", textInset)}>
         {payload.purpose ? (
           <p
             title={compact ? payload.purpose : undefined}
@@ -125,27 +125,27 @@ function SecretRequestInteraction({
             className="min-w-0 rounded text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {pathExpanded ? (
-              <code className="block break-all rounded bg-surface-raised px-1 py-px font-mono text-foreground">
+              <span className="block break-all rounded bg-surface-raised px-1 py-px text-foreground">
                 {payload.destination.path}
-              </code>
+              </span>
             ) : (
-              <code
+              <span
                 dir="rtl"
-                className="block w-min max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
+                className="block w-min max-w-full truncate rounded bg-surface-raised px-1 py-px text-foreground"
               >
                 {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
-              </code>
+              </span>
             )}
           </button>
         </p>
       </div>
 
-      <div className={compact ? "mt-2 space-y-2" : "mt-3 space-y-2.5"}>
+      <div className={compact ? "mt-3 space-y-3" : "mt-4 space-y-3.5"}>
         {payload.fields.map((field) => {
           const inputId = `secret-${interaction.id}-${field.name}`;
           const isRevealed = revealed[field.name] ?? false;
           return (
-            <div key={field.name} className="min-w-0 space-y-1">
+            <div key={field.name} className="min-w-0 space-y-1.5">
               <div
                 className={
                   compact
@@ -155,7 +155,7 @@ function SecretRequestInteraction({
               >
                 <Label
                   htmlFor={inputId}
-                  className="min-w-0 break-all font-mono text-xs font-medium text-foreground"
+                  className="min-w-0 break-all text-xs font-medium text-foreground"
                   translate="no"
                 >
                   {field.name}
@@ -191,17 +191,15 @@ function SecretRequestInteraction({
                   }
                   disabled={busy}
                   className={cn(
-                    "bg-card pr-9 font-mono text-xs",
-                    compact
-                      ? "h-7 max-md:pointer-coarse:h-8"
-                      : "h-8 max-md:pointer-coarse:h-9",
+                    "bg-card pr-10 text-xs",
+                    compact && "max-md:pointer-coarse:h-9",
                   )}
                 />
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="absolute right-0.5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground"
+                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
                   aria-label={`${isRevealed ? "Hide" : "Show"} ${field.name}`}
                   aria-pressed={isRevealed}
                   onClick={() =>
@@ -214,7 +212,7 @@ function SecretRequestInteraction({
                 >
                   <HugeiconsIcon
                     icon={isRevealed ? ViewOffSlashIcon : ViewIcon}
-                    className="size-3.5"
+                    className="size-4"
                     aria-hidden="true"
                   />
                 </Button>
@@ -226,7 +224,7 @@ function SecretRequestInteraction({
 
       {formError ? (
         <p
-          className="mt-2 rounded-md border border-surface-destructive-border bg-surface-destructive px-2 py-1 text-xs text-destructive-text"
+          className="mt-3 rounded-md border border-surface-destructive-border bg-surface-destructive px-2 py-1 text-xs text-destructive-text"
           aria-live="polite"
         >
           {formError}
@@ -237,26 +235,20 @@ function SecretRequestInteraction({
         className={cn(
           "flex items-center justify-between gap-2",
           compact
-            ? "mt-1.5"
-            : "sticky -bottom-3 z-10 -mb-3 mt-1 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-2",
+            ? "mt-3"
+            : "sticky -bottom-3 z-10 -mb-3 mt-1 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-3",
         )}
       >
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className={compact ? "font-normal" : undefined}
           disabled={busy}
           onClick={() => void cancelRequest()}
         >
           Cancel
         </Button>
-        <Button
-          type="submit"
-          size="sm"
-          className={compact ? "font-normal" : undefined}
-          disabled={busy}
-        >
+        <Button type="submit" size="sm" disabled={busy}>
           {pendingAction === "submit" ? (
             <HugeiconsIcon
               icon={Loading03Icon}

@@ -587,6 +587,23 @@ describe("PluginPendingInteractionComposer", () => {
       },
     };
 
+    function expectFlatTypeScale() {
+      const textElements = [
+        ...(document.querySelector("form")?.querySelectorAll("*") ?? []),
+      ].filter((element) =>
+        [...element.childNodes].some(
+          (node) =>
+            node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+        ),
+      );
+      expect(textElements.length).toBeGreaterThan(0);
+      for (const element of textElements) {
+        expect(element.className).not.toMatch(
+          /(^|\s)(font-mono|font-semibold|font-normal|text-sm)(\s|$)/,
+        );
+      }
+    }
+
     async function renderSecretsForm(close: (() => void) | null) {
       setPluginSlotRegistrations(
         "secrets",
@@ -634,8 +651,8 @@ describe("PluginPendingInteractionComposer", () => {
       const input = screen.getByLabelText("OPENROUTER_API_KEY");
       expect(input.className.split(" ")).toEqual(
         expect.arrayContaining([
-          "h-7",
-          "max-md:pointer-coarse:h-8",
+          "h-9",
+          "max-md:pointer-coarse:h-9",
           "max-md:pointer-coarse:text-base",
         ]),
       );
@@ -644,6 +661,7 @@ describe("PluginPendingInteractionComposer", () => {
           .getByRole("button", { name: "Add secrets" })
           .parentElement?.className.split(" "),
       ).not.toContain("sticky");
+      expectFlatTypeScale();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(close).toHaveBeenCalledOnce();
       expect(cancel).not.toHaveBeenCalled();
@@ -663,13 +681,15 @@ describe("PluginPendingInteractionComposer", () => {
       const inputClasses = screen
         .getByLabelText("OPENROUTER_API_KEY")
         .className.split(" ");
-      expect(inputClasses).toContain("h-8");
-      expect(inputClasses).not.toContain("h-9");
+      expect(inputClasses).toEqual(
+        expect.arrayContaining(["h-9", "max-md:pointer-coarse:h-10"]),
+      );
       const submit = document.querySelector('form button[type="submit"]');
       expect(submit?.className.split(" ")).not.toContain("w-full");
       const actions = submit?.parentElement?.className.split(" ") ?? [];
       expect(actions).toContain("sticky");
       expect(actions).not.toContain("flex-col-reverse");
+      expectFlatTypeScale();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(cancel).toHaveBeenCalledWith({
         interactionId: interaction.id,
