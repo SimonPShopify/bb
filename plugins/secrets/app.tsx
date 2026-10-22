@@ -91,69 +91,55 @@ function SecretRequestInteraction({
     }
   };
 
+  const textInset = compact ? "px-2.5" : undefined;
+
   return (
     <form
-      className={cn(
-        "@container/secrets",
-        compact ? "space-y-2.5" : "space-y-4",
-      )}
+      className="flex min-w-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         void submitValues();
       }}
     >
-      <div className={compact ? "space-y-1" : "space-y-2"}>
+      <div className={cn("space-y-1", textInset)}>
         {payload.purpose ? (
           <p
             title={compact ? payload.purpose : undefined}
             className={cn(
-              "text-pretty text-foreground",
-              compact ? "line-clamp-2 text-xs" : "text-sm leading-relaxed",
+              "text-pretty text-xs text-foreground",
+              compact && "line-clamp-2",
             )}
           >
             {payload.purpose}
           </p>
         ) : null}
-        {compact ? (
-          <p className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
-            <span className="shrink-0">Writes to</span>
-            <code
-              dir="rtl"
-              title={payload.destination.path}
-              className="block w-min min-w-0 max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
-            >
-              {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
-            </code>
-          </p>
-        ) : (
-          <p className="min-w-0 text-xs text-muted-foreground">
-            Secrets will be written directly to{" "}
-            <code className="break-all rounded bg-surface-raised px-1.5 py-0.5 font-mono text-foreground">
-              {payload.destination.path}
-            </code>
-          </p>
-        )}
+        <p className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
+          <span className="shrink-0">Writes to</span>
+          <code
+            dir="rtl"
+            title={payload.destination.path}
+            className="block w-min min-w-0 max-w-full truncate rounded bg-surface-raised px-1 py-px font-mono text-foreground"
+          >
+            {`\u200e${formatHomePathForDisplay(payload.destination.path)}\u200e`}
+          </code>
+        </p>
       </div>
 
-      <div className={compact ? "space-y-2" : "space-y-3.5"}>
+      <div className={compact ? "mt-2 space-y-2" : "mt-3 space-y-2.5"}>
         {payload.fields.map((field) => {
           const inputId = `secret-${interaction.id}-${field.name}`;
           const isRevealed = revealed[field.name] ?? false;
           return (
-            <div
-              key={field.name}
-              className={cn("min-w-0", compact ? "space-y-1" : "space-y-1.5")}
-            >
+            <div key={field.name} className="min-w-0 space-y-1">
               <div
-                className={
-                  compact
-                    ? "flex min-w-0 flex-wrap items-baseline gap-x-2"
-                    : "space-y-0.5"
-                }
+                className={cn(
+                  "flex min-w-0 flex-wrap items-baseline gap-x-2",
+                  textInset,
+                )}
               >
                 <Label
                   htmlFor={inputId}
-                  className="font-mono text-xs font-semibold text-foreground"
+                  className="min-w-0 break-all font-mono text-xs font-medium text-foreground"
                   translate="no"
                 >
                   {field.name}
@@ -162,10 +148,8 @@ function SecretRequestInteraction({
                   <p
                     title={compact ? field.description : undefined}
                     className={cn(
-                      "text-xs text-muted-foreground",
-                      compact
-                        ? "min-w-0 grow basis-24 truncate"
-                        : "leading-snug",
+                      "min-w-0 grow basis-24 text-xs text-muted-foreground",
+                      compact && "truncate",
                     )}
                   >
                     {field.description}
@@ -191,20 +175,17 @@ function SecretRequestInteraction({
                   }
                   disabled={busy}
                   className={cn(
-                    "bg-card font-mono",
+                    "bg-card pr-9 font-mono text-xs",
                     compact
-                      ? "h-7 pr-9 text-xs max-md:pointer-coarse:h-8"
-                      : "pr-11",
+                      ? "h-7 max-md:pointer-coarse:h-8"
+                      : "h-8 max-md:pointer-coarse:h-9",
                   )}
                 />
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 text-muted-foreground",
-                    compact ? "right-0.5 size-6" : "right-1 size-7",
-                  )}
+                  className="absolute right-0.5 top-1/2 size-6 -translate-y-1/2 text-muted-foreground"
                   aria-label={`${isRevealed ? "Hide" : "Show"} ${field.name}`}
                   aria-pressed={isRevealed}
                   onClick={() =>
@@ -217,7 +198,7 @@ function SecretRequestInteraction({
                 >
                   <HugeiconsIcon
                     icon={isRevealed ? ViewOffSlashIcon : ViewIcon}
-                    className={compact ? "size-3.5" : "size-4"}
+                    className="size-3.5"
                     aria-hidden="true"
                   />
                 </Button>
@@ -229,7 +210,7 @@ function SecretRequestInteraction({
 
       {formError ? (
         <p
-          className="rounded-md border border-surface-destructive-border bg-surface-destructive px-2 py-1 text-xs text-destructive-text"
+          className="mt-2 rounded-md border border-surface-destructive-border bg-surface-destructive px-2 py-1 text-xs text-destructive-text"
           aria-live="polite"
         >
           {formError}
@@ -237,19 +218,16 @@ function SecretRequestInteraction({
       ) : null}
 
       <div
-        className={
-          compact
-            ? "flex items-center justify-between gap-2"
-            : "sticky -bottom-3 -mb-3 z-10 flex flex-col-reverse gap-2 border-t border-border/70 bg-surface-recessed-solid pb-3 pt-4 @min-[24rem]/secrets:flex-row @min-[24rem]/secrets:items-center @min-[24rem]/secrets:justify-end"
-        }
+        className={cn(
+          "flex items-center justify-between gap-2",
+          compact ? "mt-1.5" : "mt-3",
+        )}
       >
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className={
-            compact ? "font-normal" : "w-full @min-[24rem]/secrets:w-auto"
-          }
+          className={compact ? "font-normal" : undefined}
           disabled={busy}
           onClick={() => void cancelRequest()}
         >
@@ -258,9 +236,7 @@ function SecretRequestInteraction({
         <Button
           type="submit"
           size="sm"
-          className={
-            compact ? "font-normal" : "w-full @min-[24rem]/secrets:w-auto"
-          }
+          className={compact ? "font-normal" : undefined}
           disabled={busy}
         >
           {pendingAction === "submit" ? (

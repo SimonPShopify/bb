@@ -628,12 +628,20 @@ describe("PluginPendingInteractionComposer", () => {
       expect(destination.textContent).toContain(
         "~/projects/droplet-monitor/.env",
       );
+      const input = screen.getByLabelText("OPENROUTER_API_KEY");
+      expect(input.className.split(" ")).toEqual(
+        expect.arrayContaining([
+          "h-7",
+          "max-md:pointer-coarse:h-8",
+          "max-md:pointer-coarse:text-base",
+        ]),
+      );
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(close).toHaveBeenCalledOnce();
       expect(cancel).not.toHaveBeenCalled();
     });
 
-    it("shows full copy and cancels the request on the thread's own page", async () => {
+    it("keeps the thread's own page on the question card scale and cancels there", async () => {
       const cancel = vi
         .spyOn(sdk.threads.interactions, "cancel")
         .mockReturnValue(new Promise(() => {}));
@@ -641,6 +649,15 @@ describe("PluginPendingInteractionComposer", () => {
       expect(
         screen.getByText("OpenRouter API key").getAttribute("title"),
       ).toBeNull();
+      expect(
+        screen.getByTitle(secretRequest.data.destination.path).textContent,
+      ).toContain("~/projects/droplet-monitor/.env");
+      const inputClasses = screen
+        .getByLabelText("OPENROUTER_API_KEY")
+        .className.split(" ");
+      expect(inputClasses).toContain("h-8");
+      expect(inputClasses).not.toContain("h-9");
+      expect(document.querySelector("form .sticky")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(cancel).toHaveBeenCalledWith({
         interactionId: interaction.id,
