@@ -946,7 +946,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Call its server from its UI with schema-checked RPC and typed refusals",
           "Receive webhooks and serve HTTP or WebSocket routes",
           "Share live reads and optimistic updates; finish pending writes at server acknowledgement",
-          "Publish RPC methods other plugins can discover",
+          "Publish RPC methods other plugins can discover; run producers while reads are watched",
         ],
         reference: [
           "All live hooks take { contract, method, ... } and infer their types: plain reads add input, keyed reads add keys and optional select, and mutations add optional optimistic",
@@ -984,6 +984,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ExperimentalRpcMutationState",
           "PluginRpc.experimental_invalidate",
           "PluginRpc.experimental_invalidateAll",
+          "PluginRpc.experimental_whileWatched",
           "PluginRpcClient",
           "useRealtime",
           "useRealtimeConnectionState",

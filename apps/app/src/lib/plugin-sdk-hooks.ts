@@ -795,6 +795,20 @@ export const {
         method: string,
         input: import("@bb/domain").JsonValue,
       ) => callPluginRpc(fetch, id, method, input),
+      watch: (
+        id: string,
+        method: string,
+        read: { input: import("@bb/domain").JsonValue } | { key: string },
+      ) => {
+        const target = {
+          kind: "plugin-read",
+          pluginId: id,
+          method,
+          read,
+        } as const;
+        wsManager.subscribe(target);
+        return () => wsManager.unsubscribe(target);
+      },
       subscribe: (id: string) => {
         const target = { kind: "plugin", pluginId: id } as const;
         wsManager.subscribe(target);

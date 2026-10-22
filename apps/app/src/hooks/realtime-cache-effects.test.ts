@@ -1,5 +1,6 @@
 import {
   CORE_TAG_SCOPE,
+  pluginTagScope,
   runTaggedRead,
   taggedQueryOptions,
 } from "@bb/query-tags";
@@ -262,6 +263,10 @@ describe("resuming released watches", () => {
         scope: CORE_TAG_SCOPE,
         tag: environmentPullRequestTag("env-1"),
       }),
+      pluginRead: observe(["plugin-rpc", "usage", "getUsage"], {
+        scope: pluginTagScope("usage"),
+        tag: "usage",
+      }),
     };
     try {
       await vi.advanceTimersByTimeAsync(0);
@@ -276,6 +281,12 @@ describe("resuming released watches", () => {
         { kind: "environment-detail", environmentId: "env-1" },
         { kind: "thread-detail", threadId: "thr_1" },
         { kind: "environment-pull-request", environmentId: "env-1" },
+        {
+          kind: "plugin-read",
+          pluginId: "usage",
+          method: "getUsage",
+          read: { input: null },
+        },
         { kind: "thread-list" },
       ]);
       await vi.advanceTimersByTimeAsync(500);
@@ -284,6 +295,7 @@ describe("resuming released watches", () => {
       expect(reads.threadEnvironment.queryFn).toHaveBeenCalled();
       expect(reads.otherEnvironment.queryFn).not.toHaveBeenCalled();
       expect(reads.pullRequest.queryFn).toHaveBeenCalledTimes(1);
+      expect(reads.pluginRead.queryFn).toHaveBeenCalledTimes(1);
     } finally {
       for (const read of Object.values(reads)) read.stop();
       effects.dispose();

@@ -890,3 +890,28 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
     expect(seen).toEqual([["events-appended"], ["events-appended"]]);
   });
 });
+
+it("shares watched producers across sockets", () => {
+  const hub = new NotificationHub();
+  const a = createMockHubSocket();
+  const b = createMockHubSocket();
+  const changes = vi.fn();
+  const read = {
+    kind: "plugin-read",
+    pluginId: "demo",
+    method: "status",
+    read: { input: { a: 1, b: 2 } },
+  } as const;
+  const stop = hub.onWatchedTargets(["plugin-read"], changes);
+  hub.subscribe(a, read);
+  hub.subscribe(b, { ...read, read: { input: { b: 2, a: 1 } } });
+  expect(changes.mock.calls).toEqual([[{ started: [read], stopped: [] }]]);
+  hub.unsubscribe(a, read);
+  expect(changes).toHaveBeenCalledTimes(1);
+  hub.unregisterClient(b);
+  expect(changes.mock.calls).toEqual([
+    [{ started: [read], stopped: [] }],
+    [{ started: [], stopped: [read] }],
+  ]);
+  stop();
+});

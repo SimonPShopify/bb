@@ -512,6 +512,9 @@ export function createRealtimeCacheEffects({
           environmentPullRequestTag(target.environmentId),
         ]);
         return;
+      case "plugin-read":
+        applyTags(pluginTagScope(target.pluginId), null);
+        return;
       case "thread-timeline":
       case "thread-list":
       case "project-list":

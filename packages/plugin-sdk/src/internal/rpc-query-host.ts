@@ -19,7 +19,11 @@ import {
   useTaggedMutation,
   useQuerySelection,
 } from "@bb/query-tags";
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
+import {
+  canonicalPluginReadInput,
+  jsonValueSchema,
+  type JsonValue,
+} from "@bb/domain";
 import { rpcResponseTags } from "./rpc-tags.js";
 import { z } from "zod";
 import type {
@@ -34,6 +38,11 @@ export interface RpcQueryHost {
   queryClient: QueryClient;
   call(pluginId: string, method: string, input: JsonValue): Promise<unknown>;
   subscribe(pluginId: string): () => void;
+  watch?(
+    pluginId: string,
+    method: string,
+    read: { input: JsonValue } | { key: string },
+  ): () => void;
 }
 interface RpcResponse {
   result: JsonValue;
@@ -157,6 +166,13 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
     const input = jsonValueSchema.parse(options.input ?? null);
     const queryKey = rpcQueryKey(pluginId, options.method, input);
     useSubscription(host, pluginId, options.enabled ?? true);
+    const watchIdentity = canonicalPluginReadInput(input);
+    useEffect(() => {
+      if (options.enabled === false) return;
+      return host.watch?.(pluginId, options.method, {
+        input: jsonValueSchema.parse(JSON.parse(watchIdentity)),
+      });
+    }, [host, pluginId, options.method, watchIdentity, options.enabled]);
     const query = useTaggedQuery(
       {
         queryKey,
@@ -292,6 +308,15 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
       [keys, enabled, selectRows],
     );
     const query = useQuerySelection(subscribe, getSnapshot, select);
+    useEffect(() => {
+      if (!enabled) return;
+      const releases = keys.map((key) =>
+        host.watch?.(pluginId, options.method, { key }),
+      );
+      return () => {
+        releases.forEach((release) => release?.());
+      };
+    }, [host, pluginId, options.method, keys, enabled]);
     const refetch = useCallback(async () => {
       await current.observer.refetch();
     }, [current]);
