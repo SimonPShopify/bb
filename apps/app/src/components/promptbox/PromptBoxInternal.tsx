@@ -1,13 +1,14 @@
 import { VoiceInputButton } from "./VoiceInputButton";
 import { registerPaneComposerFocus } from "@/lib/pane-composer-focus";
+import { ComposerMaxHeightContext } from "./composer-max-height";
+import { parseThreadLink, type ThreadLinkTarget } from "@/lib/thread-links";
 import type { PendingAttachmentUpload } from "./usePendingAttachmentUploads";
 import { registerThreadMentionDropTarget } from "@/lib/thread-mention-drop";
 import type {
   PromptMentionCommandTrigger,
-  PromptMentionResource,
   PromptTextMention,
 } from "@bb/domain";
-import type { ComposerView } from "@get-bb/plugin-sdk";
+import type { ComposerDraft, ComposerView } from "@get-bb/plugin-sdk";
 import type { ThreadResponse } from "@bb/server-contract";
 import { QueryClientContext } from "@tanstack/react-query";
 import { useThreadTitleMentionResources } from "@/components/thread/ThreadTitleMentions";
@@ -38,24 +39,44 @@ import {
   type Ref,
 } from "react";
 import {
-  commandPillDismissedRangeEnd,
-  findActiveTrigger,
+  composerMentionFromPromptTextMention,
+  composerMentionGroupsFromOrdered,
+  groupCommandSuggestions,
   orderCommandSuggestions,
-  type ActiveTrigger,
-  type CommandMenuState,
-  type MentionMenuState,
+  promptTextMentionFromComposerMention,
+  type ComposerMentionShape as ComposerMention,
   type OrderedMentionSuggestions,
   type ProviderCommandSuggestion,
-  type PromptMentionSuggestion,
-  type TypeaheadMenuState,
-  type TypeaheadTrigger,
 } from "@bb/client-core";
+import {
+  commandPillDismissedRangeEnd,
+  findActiveTrigger,
+  type ActiveTrigger,
+  type TypeaheadTrigger,
+} from "./mentions/find-active-trigger";
+import {
+  attachmentMentionGroup,
+  typeaheadSuggestionKey,
+  type CommandMenuState,
+  type MentionMenuState,
+  type MenuMentionGroup,
+  type MenuMentionSuggestion,
+  type TypeaheadMenuState,
+  type TypeaheadSuggestion,
+} from "./mentions/typeahead-suggestions";
+import {
+  commandMentionTarget,
+  compareMentions,
+  mentionInRange,
+  sameMention,
+  shiftMention,
+  type MentionTarget,
+} from "./editor/composer-mentions";
 import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
 import {
   useAppCommandKeyDispatch,
   useAppCommandShortcut,
 } from "@/components/commands/AppCommandProvider";
-import { canLoadMoreCommandResults } from "@/components/promptbox/mentions/mention-menu-scroll";
 import {
   voiceUnsupportedMessage,
   type VoiceUnsupportedReason,
@@ -117,9 +138,12 @@ import {
   clearComposerEditorBridge,
   publishComposerEditorBridge,
   type ComposerEditorBridge,
-  type ComposerEditorInsertValue,
 } from "@/lib/composer-editor-registry";
-import type { ComposerEditorState } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type {
+  ComposerEditorState,
+  ComposerEditorSubmission,
+  ComposerSubmitExtras,
+} from "@get-bb/plugin-sdk/internal/composer-handle";
 import {
   arePromptDraftStatesEqual,
   isPromptDraftEmpty,
@@ -128,25 +152,21 @@ import {
 } from "@bb/client-core";
 import { cn } from "@bb/shared-ui/lib/utils";
 import { PROMPT_STACK_EDGE_CARET_BUTTON_WIDTH_CLASS } from "./banner/PromptStackCard";
-import { AttachmentPreview, isImageAttachment } from "./AttachmentPreview";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { useAttachmentOpener } from "@/components/secondary-panel/AttachmentOpenerContext";
-import { isProjectAttachmentPath } from "@/lib/file-content-urls";
-import {
-  withAttachmentMentionSuggestions,
-  type AttachmentMentionSuggestion,
-} from "@/hooks/promptMentionCandidates";
 import { VoiceRecordingBar } from "./VoiceRecordingBar";
 import { FailedVoiceRecordings } from "./FailedVoiceRecordings";
 import {
   ComposerPlusMenuSlot,
   type PromptBoxAction,
 } from "./PromptBoxActionsMenu";
-import type { PromptMentionLinkResolver } from "./editor/prompt-mention-link";
+import type { PromptMentionLinkResolver } from "@bb/client-core";
+import { mentionLinkResolver } from "./editor/prompt-mention-link";
+import { refreshPromptDecorations } from "./editor/prompt-decoration-extension";
 import {
-  refreshPromptDecorations,
-  type PromptDecorationSource,
-  type PromptDraftObserver,
-} from "./editor/prompt-decoration-extension";
+  composerDecorationSources,
+  createDraftObserverRunner,
+} from "./composer-decorations";
 import type { ComposerTextEffectSource } from "@/lib/composer-text-effects";
 import { promptEditorExtensions } from "./editor/prompt-editor-extensions";
 import {
@@ -159,14 +179,13 @@ import {
   promptThreadLinkPasteKey,
 } from "./editor/prompt-thread-link-paste";
 import {
-  promptCommandResourceFromSuggestion,
   promptEditorClipboardTextFromSlice,
   promptEditorContentFromValue,
   promptEditorCopiedSlice,
   promptEditorInlineContentFromValue,
   promptEditorValueFromDoc,
   promptEditorValueFromSlice,
-  promptMentionResourceFromSuggestion,
+  type PromptEditorMentionAttrs,
   type PromptEditorValue,
 } from "./editor/prompt-editor-serialization";
 import {
@@ -175,13 +194,9 @@ import {
   removeEmptyBlockquotes,
 } from "./editor/prompt-editor-blockquote";
 import { applyPromptParagraphNewline } from "./editor/prompt-editor-paragraph";
-import {
-  MentionMenu,
-  typeaheadSuggestionKey,
-  type TypeaheadSuggestion,
-} from "./mentions/MentionMenu";
+import { MentionMenu } from "./mentions/MentionMenu";
 import { useTypeaheadMenuMaxHeight } from "./useTypeaheadMenuMaxHeight";
-import { parsePromptMentionClipboardElement } from "./mentions/prompt-mention-clipboard";
+import { readPromptMentionClipboard } from "./mentions/prompt-mention-pill";
 import {
   readMessageClipboardHtml,
   readMessageClipboardImage,
@@ -190,6 +205,7 @@ import { appToast } from "@/components/ui/app-toast";
 import { findPastedThreadLinkCandidates } from "./mentions/pasted-thread-link-candidates";
 import {
   blurPromptEditor,
+  COMPOSER_EDITOR_AVAILABLE_HEIGHT_PROPERTY,
   ComposerEditorSlot,
   type ComposerEditorLayout,
 } from "./ComposerEditorSlot";
@@ -205,6 +221,10 @@ const PROMPTBOX_MIN_HEIGHT = 68;
 const PROMPTBOX_SELECTION_REVEAL_MARGIN = 12;
 const COMPACT_PROMPT_ACTION_BUTTON_CLASS =
   "size-8 p-0 transition-all [&_[data-icon-root]]:size-4 max-md:pointer-coarse:size-10";
+function parseLocalThreadLink(url: string): ThreadLinkTarget | null {
+  return parseThreadLink(url, window.location.origin);
+}
+
 const RICH_PASTE_BLOCK_TAGS = new Set([
   "ADDRESS",
   "ARTICLE",
@@ -307,6 +327,8 @@ function withUniqueAttachmentNames(
 }
 type VoiceActionTransition = "entering" | "active" | "exiting";
 
+const ignoreReportedSubmitError = () => {};
+
 export const DEFAULT_COMPOSER_SCOPE = {
   kind: "new-thread",
   projectId: null,
@@ -328,7 +350,7 @@ export interface PromptBoxSubmissionConfig {
   title?: string;
   isRunning?: boolean;
   onStop?: () => void;
-  onModifierSubmit?: () => void;
+  onModifierSubmit?: (extras?: ComposerSubmitExtras) => void | Promise<void>;
   swapSubmitActions?: boolean;
   showModifierSubmitAction?: boolean;
 }
@@ -500,9 +522,6 @@ export interface TypeaheadCommandConfig {
   suggestions: readonly ProviderCommandSuggestion[];
   isLoading: boolean;
   isError: boolean;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  loadMore: () => void;
   onQueryChange: (
     query: string | null,
     trigger: PromptMentionCommandTrigger | null,
@@ -520,9 +539,6 @@ export const INERT_TYPEAHEAD_COMMAND_CONFIG: TypeaheadCommandConfig = {
   suggestions: [],
   isLoading: false,
   isError: false,
-  hasMore: false,
-  isLoadingMore: false,
-  loadMore: () => {},
   onQueryChange: () => {},
 };
 
@@ -611,10 +627,13 @@ export interface PromptVoiceConfig {
 export interface PromptBoxHandle {
   focusEnd: () => void;
   captureHeightForLayoutChange: () => void;
-  insertTextAtCursor: (text: string) => void;
-  sendVoiceTranscript: (text: string) => void;
-  getTextBeforeCursor: () => string | undefined;
-  playVoiceCompletionTransition: () => Promise<void>;
+  voice: PromptBoxVoice;
+}
+
+export interface PromptBoxVoice {
+  textBeforeCursor(): string | null;
+  deliverTranscript(text: string, delivery: VoiceDelivery): void;
+  playCompletionTransition(): Promise<void>;
 }
 
 export type { PromptBoxAction } from "./PromptBoxActionsMenu";
@@ -631,14 +650,13 @@ interface PromptBoxInternalProps {
   value: string;
   mentionRanges: readonly PromptTextMention[];
   onChange: (value: string, mentionRanges: PromptTextMention[]) => void;
-  onSubmit: () => void;
+  onSubmit: (extras?: ComposerSubmitExtras) => void | Promise<void>;
   onEscape?: () => void;
   blurOnPointerSubmit?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
   textEffects?: readonly ComposerTextEffectSource[];
   onComposerLayoutChange?: (layout: ComposerView["layout"]) => void;
-  header?: ReactNode;
   modeHeader?: ReactNode;
   footerStart?: ReactNode;
   submitAccessory?: ReactNode;
@@ -669,7 +687,7 @@ interface DismissedTriggerRange {
 
 interface PromptEditorValueKey {
   text: string;
-  mentions: readonly PromptTextMention[];
+  mentions: readonly ComposerMention[];
 }
 
 const DEFAULT_TYPEAHEAD_MENTION_TRIGGERS = [
@@ -697,8 +715,7 @@ interface PromptActionInsertionRange {
 interface PromptActionCommand {
   serializedText: string;
   trailingText: string;
-  trigger: PromptMentionCommandTrigger;
-  suggestion: ProviderCommandSuggestion;
+  target: MentionTarget;
 }
 
 const PROMPTBOX_INTERACTIVE_TARGET_SELECTOR = [
@@ -724,24 +741,33 @@ export function arePromptEditorValuesEqual(
   if (left.mentions === right.mentions) return true;
   if (left.mentions.length !== right.mentions.length) return false;
   for (let index = 0; index < left.mentions.length; index += 1) {
-    const leftMention = left.mentions[index]!;
-    const rightMention = right.mentions[index]!;
-    if (leftMention === rightMention) continue;
-    if (
-      leftMention.start !== rightMention.start ||
-      leftMention.end !== rightMention.end
-    ) {
-      return false;
-    }
-    if (
-      leftMention.resource !== rightMention.resource &&
-      JSON.stringify(leftMention.resource) !==
-        JSON.stringify(rightMention.resource)
-    ) {
+    if (!sameMention(left.mentions[index]!, right.mentions[index]!)) {
       return false;
     }
   }
   return true;
+}
+
+const composerMentionsByPromptMentions = new WeakMap<
+  readonly PromptTextMention[],
+  readonly ComposerMention[]
+>();
+
+function promptMentionsFromComposer(
+  mentions: readonly ComposerMention[],
+): PromptTextMention[] {
+  const promptMentions = mentions.map(promptTextMentionFromComposerMention);
+  composerMentionsByPromptMentions.set(promptMentions, mentions);
+  return promptMentions;
+}
+
+function composerMentionsFromPrompt(
+  mentions: readonly PromptTextMention[],
+): readonly ComposerMention[] {
+  return (
+    composerMentionsByPromptMentions.get(mentions) ??
+    mentions.map(composerMentionFromPromptTextMention)
+  );
 }
 
 function normalizePastedPlainText(text: string): string {
@@ -751,8 +777,8 @@ function normalizePastedPlainText(text: string): string {
 function promptActionCommandMentionsFromText(
   text: string,
   actions: readonly PromptBoxAction[] | undefined,
-): PromptTextMention[] {
-  const mentions: PromptTextMention[] = [];
+): ComposerMention[] {
+  const mentions: ComposerMention[] = [];
 
   for (const action of actions ?? []) {
     const commandAction = promptActionCommandFromAction(action);
@@ -774,47 +800,34 @@ function promptActionCommandMentionsFromText(
       const hasTokenBoundaryAfter = after === "" || /\s/u.test(after);
 
       if (hasTokenBoundaryBefore && hasTokenBoundaryAfter) {
-        mentions.push({
-          start,
-          end,
-          resource: promptCommandResourceFromSuggestion({
-            suggestion: commandAction.suggestion,
-            trigger: commandAction.trigger,
-          }),
-        });
+        mentions.push(mentionInRange(commandAction.target, start, end));
       }
 
       searchStart = end;
     }
   }
 
-  return mentions.sort(
-    (left, right) => left.start - right.start || left.end - right.end,
-  );
+  return mentions.sort(compareMentions);
 }
 
-function mergePromptTextMentions(
-  baseMentions: readonly PromptTextMention[],
-  additionalMentions: readonly PromptTextMention[],
-): PromptTextMention[] {
-  const merged = [...baseMentions].sort(
-    (left, right) => left.start - right.start || left.end - right.end,
-  );
+function mergeMentions(
+  baseMentions: readonly ComposerMention[],
+  additionalMentions: readonly ComposerMention[],
+): ComposerMention[] {
+  const merged = [...baseMentions].sort(compareMentions);
 
   for (const additionalMention of additionalMentions) {
     const overlapsExisting = merged.some(
       (mention) =>
-        additionalMention.start < mention.end &&
-        additionalMention.end > mention.start,
+        additionalMention.from < mention.to &&
+        additionalMention.to > mention.from,
     );
     if (!overlapsExisting) {
       merged.push(additionalMention);
     }
   }
 
-  return merged.sort(
-    (left, right) => left.start - right.start || left.end - right.end,
-  );
+  return merged.sort(compareMentions);
 }
 
 function withPromptActionCommandMentions(
@@ -831,7 +844,7 @@ function withPromptActionCommandMentions(
 
   return {
     ...value,
-    mentions: mergePromptTextMentions(value.mentions, promptActionMentions),
+    mentions: mergeMentions(value.mentions, promptActionMentions),
   };
 }
 
@@ -877,7 +890,7 @@ function trimTrailingPromptNewlines(
 
   return {
     text,
-    mentions: value.mentions.filter((mention) => mention.end <= text.length),
+    mentions: value.mentions.filter((mention) => mention.to <= text.length),
   };
 }
 
@@ -886,7 +899,7 @@ function promptEditorValueFromRichHtml(html: string): ParsedRichClipboardValue {
   let text = "";
   let hasMentions = false;
   let listMarkerPending = false;
-  const mentions: PromptTextMention[] = [];
+  const mentions: ComposerMention[] = [];
   const literalRanges: { from: number; to: number }[] = [];
 
   const flushListMarker = () => {
@@ -932,19 +945,15 @@ function promptEditorValueFromRichHtml(html: string): ParsedRichClipboardValue {
   };
 
   const appendClipboardMention = (element: Element): boolean => {
-    const payload = parsePromptMentionClipboardElement({ element });
-    if (!payload) {
+    const pill = readPromptMentionClipboard(element);
+    if (!pill) {
       return false;
     }
 
     flushListMarker();
     const start = text.length;
-    appendText(payload.serializedText);
-    mentions.push({
-      start,
-      end: text.length,
-      resource: payload.resource,
-    });
+    appendText(pill.text);
+    mentions.push(mentionInRange(pill.mention, start, text.length));
     hasMentions = true;
     return true;
   };
@@ -1022,7 +1031,7 @@ function promptEditorValueFromRichHtml(html: string): ParsedRichClipboardValue {
   visitChildren(document.body, false);
   const threadLinks = findPastedThreadLinkCandidates({
     text,
-    origin: window.location.origin,
+    parseLink: parseLocalThreadLink,
   }).map((link) => ({
     text: link.text,
     literal: literalRanges.some(
@@ -1039,9 +1048,9 @@ function promptEditorValueFromRichHtml(html: string): ParsedRichClipboardValue {
         text: trimmedText,
         mentions: mentions.filter(
           (mention) =>
-            mention.start >= 0 &&
-            mention.end > mention.start &&
-            mention.end <= trimmedText.length,
+            mention.from >= 0 &&
+            mention.to > mention.from &&
+            mention.to <= trimmedText.length,
         ),
       },
     };
@@ -1146,33 +1155,22 @@ function promptActionTextImmediatelyBeforeCursor(
 }
 
 function withLeadingCommand(
-  value: { text: string; mentions: readonly PromptTextMention[] },
+  value: { text: string; mentions: readonly ComposerMention[] },
   command: PromptActionCommand,
 ): PromptEditorValue {
   const leadingCommand = value.mentions.find(
-    (mention) => mention.resource.kind === "command" && mention.start === 0,
+    (mention) => mention.kind === "command" && mention.from === 0,
   );
-  const rest = value.text.slice(leadingCommand?.end ?? 0).trimStart();
+  const rest = value.text.slice(leadingCommand?.to ?? 0).trimStart();
   const prefix = `${command.serializedText}${command.trailingText}`;
   const shift = prefix.length - (value.text.length - rest.length);
   return {
     text: `${prefix}${rest}`,
     mentions: [
-      {
-        start: 0,
-        end: command.serializedText.length,
-        resource: promptCommandResourceFromSuggestion({
-          suggestion: command.suggestion,
-          trigger: command.trigger,
-        }),
-      },
+      mentionInRange(command.target, 0, command.serializedText.length),
       ...value.mentions
         .filter((mention) => mention !== leadingCommand)
-        .map((mention) => ({
-          ...mention,
-          start: mention.start + shift,
-          end: mention.end + shift,
-        })),
+        .map((mention) => shiftMention(mention, shift)),
     ],
   };
 }
@@ -1209,19 +1207,13 @@ function promptActionCommandFromAction(
   }
 
   const { trigger, name, trailingText } = action.command;
-  const serializedText = `${trigger}${name}`;
   return {
-    serializedText,
+    serializedText: `${trigger}${name}`,
     trailingText,
-    trigger,
-    suggestion: {
-      kind: "command",
-      name,
-      source: "command",
-      origin: "user",
-      description: null,
-      argumentHint: null,
-    },
+    target: commandMentionTarget(
+      { name, source: "command", origin: "user", argumentHint: null },
+      trigger,
+    ),
   };
 }
 
@@ -1272,8 +1264,8 @@ function isIPadHardwareEnterCandidate(event: KeyboardEvent): boolean {
 export function PromptBoxInternal({
   id,
   value,
-  mentionRanges,
-  onChange,
+  mentionRanges: promptMentionRanges,
+  onChange: onPromptChange,
   onSubmit: onDefaultSubmit,
   onEscape,
   blurOnPointerSubmit = false,
@@ -1281,7 +1273,6 @@ export function PromptBoxInternal({
   autoFocus = true,
   textEffects,
   onComposerLayoutChange,
-  header,
   modeHeader,
   footerStart,
   submitAccessory,
@@ -1303,6 +1294,15 @@ export function PromptBoxInternal({
   promptBoxRef,
   focusEndKey,
 }: PromptBoxInternalProps) {
+  const mentionRanges = useMemo(
+    () => composerMentionsFromPrompt(promptMentionRanges),
+    [promptMentionRanges],
+  );
+  const onChange = useCallback(
+    (text: string, mentions: readonly ComposerMention[]) =>
+      onPromptChange(text, promptMentionsFromComposer(mentions)),
+    [onPromptChange],
+  );
   const focusComposerShortcut = useAppCommandShortcut("composer.focus");
   const {
     isSubmitting = false,
@@ -1358,27 +1358,12 @@ export function PromptBoxInternal({
     projectId: attachmentProjectId,
   } = attachmentConfig;
   const openAttachment = useAttachmentOpener();
-  const resolveEditorMentionLink: PromptMentionLinkResolver = (resource) => {
-    if (resource.kind !== "attachment") {
-      return mentionResolveLink?.(resource) ?? null;
-    }
-    const attachment = attachments.find((item) => item.path === resource.path);
-    const projectId = attachment?.sourceProjectId ?? attachmentProjectId;
-    if (
-      !attachment ||
-      !openAttachment ||
-      !projectId ||
-      !isProjectAttachmentPath(attachment)
-    ) {
-      return null;
-    }
-    return () =>
-      openAttachment({
-        name: attachment.name,
-        path: attachment.path,
-        projectId,
-      });
-  };
+  const resolveEditorMentionLink = mentionLinkResolver({
+    resolveLink: mentionResolveLink,
+    attachments,
+    attachmentProjectId,
+    openAttachment,
+  });
   const isPointerCoarse = usePointerCoarse();
   const isIPadOSWebKitDevice = useMemo(isIPadOSWebKit, []);
   const editorEnterKeyHint = isPointerCoarse ? "enter" : "send";
@@ -1415,12 +1400,37 @@ export function PromptBoxInternal({
   const threadLinkCacheRef = useRef({ threadTitleResources, queryClient });
   threadLinkCacheRef.current = { threadTitleResources, queryClient };
   const editorScrollContainerRef = useRef<HTMLDivElement>(null);
+  const maxHeight = useContext(ComposerMaxHeightContext);
+  useLayoutEffect(() => {
+    const formElement = formRef.current;
+    const scrollElement = editorScrollContainerRef.current;
+    if (!formElement || !scrollElement) return;
+    if (maxHeight === undefined) {
+      formElement.style.removeProperty(
+        COMPOSER_EDITOR_AVAILABLE_HEIGHT_PROPERTY,
+      );
+      return;
+    }
+    const capEditor = () => {
+      const chromeHeight =
+        formElement.offsetHeight - scrollElement.offsetHeight;
+      formElement.style.setProperty(
+        COMPOSER_EDITOR_AVAILABLE_HEIGHT_PROPERTY,
+        `${maxHeight - chromeHeight}px`,
+      );
+    };
+    capEditor();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(capEditor);
+    observer.observe(formElement);
+    return () => observer.disconnect();
+  }, [maxHeight]);
   const revealSelectionFrameRef = useRef<number | null>(null);
   const promptActionFocusFrameRef = useRef<number | null>(null);
   const pendingFocusEndRef = useRef(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
-  const mentionRangesRef = useRef<readonly PromptTextMention[]>(mentionRanges);
+  const mentionRangesRef = useRef<readonly ComposerMention[]>(mentionRanges);
   const placeholderRef = useRef(placeholder);
   const skipEditorChangeRef = useRef(false);
   const lastSyncedEditorValueRef = useRef<PromptEditorValueKey | null>(null);
@@ -1619,8 +1629,6 @@ export function PromptBoxInternal({
     isSubmitting,
   });
   const composerView = useOptionalPluginComposerView() ?? localComposerView;
-  const composerViewRef = useRef(composerView);
-  composerViewRef.current = composerView;
   const composerScopeKey = composerScopeIdentity(composerView.scope);
   const resolvedComposerEditor = useResolvedComposerEditor(
     suppressPluginComposerCustomizations ? null : composerView.scope.kind,
@@ -1628,49 +1636,26 @@ export function PromptBoxInternal({
   useEffect(() => {
     onComposerLayoutChange?.(composerLayout);
   }, [composerLayout, onComposerLayoutChange]);
-  const pluginRichTextContributions = useMemo(() => {
-    const sources: PromptDecorationSource[] = [];
-    const observers: PromptDraftObserver[] = [];
-    for (const contribution of resolvedComposerEditor.effects) {
-      sources.push({
-        id: `${contribution.pluginId}/${contribution.customizationId}`,
-        generation: contribution.generation,
-        pluginId: contribution.pluginId,
-        effects: contribution.effects,
-      });
-    }
-    for (const contribution of resolvedComposerEditor.observers) {
-      observers.push({
-        id: `${contribution.pluginId}/${contribution.customizationId}`,
-        getView: () => composerViewRef.current,
-        onDraftChange: contribution.onDraftChange,
-      });
-    }
-    for (const effectSource of textEffects ?? []) {
-      const className = effectSource.effect.className;
-      if (className.length === 0) continue;
-      sources.push({
-        id: `plugin-imperative:${effectSource.pluginId}:${effectSource.order}`,
-        generation: effectSource.order,
-        pluginId: effectSource.pluginId,
-        effects: [
-          {
-            id: "whole-draft",
-            className,
-            match: (text) =>
-              text.length === 0 ? [] : [{ from: 0, to: text.length }],
-          },
-        ],
-      });
-    }
-    return { sources, observers };
-  }, [resolvedComposerEditor, textEffects]);
-  const pluginDecorationSourcesRef = useRef(
-    pluginRichTextContributions.sources,
+  const decorationSources = useMemo(
+    () =>
+      composerDecorationSources(
+        resolvedComposerEditor.effects,
+        textEffects ?? [],
+      ),
+    [resolvedComposerEditor.effects, textEffects],
   );
-  pluginDecorationSourcesRef.current = pluginRichTextContributions.sources;
-  const pluginDraftObserversRef = useRef(pluginRichTextContributions.observers);
-  pluginDraftObserversRef.current = pluginRichTextContributions.observers;
+  const decorationSourcesRef = useRef(decorationSources);
+  decorationSourcesRef.current = decorationSources;
+  const [draftObserverRunner] = useState(createDraftObserverRunner);
+  useEffect(() => {
+    draftObserverRunner.update({
+      text: value,
+      mentions: promptMentionRanges,
+      view: composerView,
+      observers: resolvedComposerEditor.observers,
+    });
+  });
+  useEffect(() => () => draftObserverRunner.dispose(), [draftObserverRunner]);
   const focusScopeKey = history?.resetKey;
   const onChangeRef = useRef(onChange);
 
@@ -1990,11 +1975,10 @@ export function PromptBoxInternal({
     () => [
       ...promptEditorExtensions({
         getPlaceholder: () => placeholderRef.current,
-        getDecorationSources: () => pluginDecorationSourcesRef.current,
-        getDraftObservers: () => pluginDraftObserversRef.current,
+        getDecorationSources: () => decorationSourcesRef.current,
       }),
       createPromptThreadLinkPasteExtension({
-        getOrigin: () => window.location.origin,
+        parseLink: parseLocalThreadLink,
         getCachedThread: (threadId) => {
           const cache = threadLinkCacheRef.current;
           const thread =
@@ -2150,7 +2134,7 @@ export function PromptBoxInternal({
               return { skip: skipThreadLinks };
             const pastedLinks = findPastedThreadLinkCandidates({
               text: pastedValue.text,
-              origin: window.location.origin,
+              parseLink: parseLocalThreadLink,
             });
             if (
               pastedLinks.length !== links.length ||
@@ -2387,16 +2371,19 @@ export function PromptBoxInternal({
   }, [editor, isSubmitting, composerInputLocked]);
 
   useLayoutEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    return registerPaneComposerFocus(editor.view.dom, () => {
-      if (!editor.isDestroyed && editor.isEditable) editor.view.focus();
+    const formElement = formRef.current;
+    if (!formElement || !editor || editor.isDestroyed) return;
+    return registerPaneComposerFocus(formElement, () => {
+      if (editor.isDestroyed || !editor.isEditable) return false;
+      editor.view.focus();
+      return true;
     });
   }, [editor]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     refreshPromptDecorations(editor);
-  }, [composerScopeKey, editor, pluginRichTextContributions]);
+  }, [composerScopeKey, decorationSources, editor]);
 
   useLayoutEffect(() => {
     if (!pendingFocusEndRef.current) return;
@@ -2612,20 +2599,13 @@ export function PromptBoxInternal({
   const hasSubmittableInput = trimmedValue.length > 0 || hasAttachments;
 
   const activeTriggerKind = activeTrigger?.kind ?? null;
-  const commandHasMore = typeahead.command.hasMore;
-  const commandIsLoadingMore = typeahead.command.isLoadingMore;
-  const loadMoreCommands = typeahead.command.loadMore;
-  const canLoadMoreCommands =
-    activeTriggerKind === "command" &&
-    canLoadMoreCommandResults({
-      hasMore: commandHasMore,
-      isError: commandError,
-      isLoadingMore: commandIsLoadingMore,
-    });
   const activeCommandQuery =
     activeTrigger?.kind === "command" ? activeTrigger.query : "";
-  const orderedCommandSuggestions = useMemo(
-    () => orderCommandSuggestions(commandSuggestions, activeCommandQuery),
+  const commandGroups = useMemo(
+    () =>
+      groupCommandSuggestions(
+        orderCommandSuggestions(commandSuggestions, activeCommandQuery),
+      ),
     [activeCommandQuery, commandSuggestions],
   );
   const activeMentionQuery =
@@ -2633,48 +2613,32 @@ export function PromptBoxInternal({
   const isDefaultMentionTrigger =
     activeTrigger?.kind === "mention" &&
     activeTrigger.char === DEFAULT_PLUGIN_MENTION_TRIGGER;
-  const attachmentMentionSuggestions = useMemo(
-    () =>
-      attachments
-        .filter((attachment) => !isImageAttachment(attachment))
-        .map(
-          (attachment): AttachmentMentionSuggestion => ({
-            kind: "attachment",
-            path: attachment.path,
-            name: attachment.name,
-            replacement: `@${attachment.name}`,
-          }),
-        ),
-    [attachments],
+  const mentionGroups = useMemo(
+    () => composerMentionGroupsFromOrdered(mentionResults),
+    [mentionResults],
   );
-  const composerMentionResults = useMemo(
+  const attachmentGroup = useMemo(
     () =>
       isDefaultMentionTrigger
-        ? withAttachmentMentionSuggestions({
-            attachments: attachmentMentionSuggestions,
-            query: activeMentionQuery,
-            results: mentionResults,
-          })
-        : mentionResults,
-    [
-      activeMentionQuery,
-      attachmentMentionSuggestions,
-      isDefaultMentionTrigger,
-      mentionResults,
-    ],
+        ? attachmentMentionGroup(attachments, activeMentionQuery)
+        : null,
+    [activeMentionQuery, attachments, isDefaultMentionTrigger],
+  );
+  const menuMentionGroups = useMemo<readonly MenuMentionGroup[]>(
+    () =>
+      attachmentGroup === null
+        ? mentionGroups
+        : [attachmentGroup, ...mentionGroups],
+    [attachmentGroup, mentionGroups],
   );
   const activeSuggestions = useMemo<readonly TypeaheadSuggestion[]>(
     () =>
       activeTriggerKind === "command"
-        ? orderedCommandSuggestions
+        ? commandGroups.flatMap((group) => group.suggestions)
         : activeTriggerKind === "mention"
-          ? composerMentionResults.suggestions
+          ? menuMentionGroups.flatMap((group) => group.suggestions)
           : [],
-    [
-      activeTriggerKind,
-      composerMentionResults.suggestions,
-      orderedCommandSuggestions,
-    ],
+    [activeTriggerKind, commandGroups, menuMentionGroups],
   );
   const selectedSuggestionIndex = useMemo(() => {
     if (selectedSuggestionKey === null) return -1;
@@ -2686,10 +2650,10 @@ export function PromptBoxInternal({
   const selectedIndex = Math.max(0, selectedSuggestionIndex);
 
   const mentionMenuState: MentionMenuState =
-    composerMentionResults !== mentionResults
+    attachmentGroup !== null
       ? {
           kind: "results",
-          results: composerMentionResults,
+          groups: menuMentionGroups,
           refreshing: mentionRefreshing,
         }
       : activeMentionQuery.length === 0
@@ -2700,7 +2664,7 @@ export function PromptBoxInternal({
             ? { kind: "error" }
             : {
                 kind: "results",
-                results: mentionResults,
+                groups: mentionGroups,
                 refreshing: mentionRefreshing,
               };
 
@@ -2708,7 +2672,7 @@ export function PromptBoxInternal({
     ? { kind: "loading" }
     : commandError
       ? { kind: "error" }
-      : { kind: "results", suggestions: orderedCommandSuggestions };
+      : { kind: "results", groups: commandGroups };
 
   const isCommandTriggerLiteral =
     activeTriggerKind === "command" &&
@@ -2779,26 +2743,6 @@ export function PromptBoxInternal({
     }
   }, [selectedSuggestionIndex, selectedSuggestionKey]);
 
-  useEffect(() => {
-    if (
-      activeTriggerKind !== "command" ||
-      !canLoadMoreCommands ||
-      activeSuggestions.length === 0
-    ) {
-      return;
-    }
-    const prefetchIndex = Math.max(0, activeSuggestions.length - 3);
-    if (selectedIndex >= prefetchIndex) {
-      loadMoreCommands();
-    }
-  }, [
-    activeSuggestions.length,
-    activeTriggerKind,
-    canLoadMoreCommands,
-    loadMoreCommands,
-    selectedIndex,
-  ]);
-
   const finishApply = useCallback(
     (appliedEditor: Editor) => {
       const nextValue = promptEditorValueFromDoc(appliedEditor.state.doc);
@@ -2824,7 +2768,7 @@ export function PromptBoxInternal({
     ({
       editor: targetEditor,
       range,
-      resource,
+      mention,
       serializedText,
       trailingText,
       dismissedTrigger,
@@ -2832,7 +2776,7 @@ export function PromptBoxInternal({
     }: {
       editor: Editor;
       range: { from: number; to: number };
-      resource: PromptMentionResource;
+      mention: MentionTarget;
       serializedText: string;
       trailingText: string;
       dismissedTrigger: DismissedTriggerRange | null;
@@ -2855,9 +2799,9 @@ export function PromptBoxInternal({
             {
               type: "mention",
               attrs: {
-                resource,
+                mention,
                 serializedText,
-              },
+              } satisfies PromptEditorMentionAttrs,
             },
             ...(trailingText ? [{ type: "text", text: trailingText }] : []),
           ])
@@ -2871,8 +2815,9 @@ export function PromptBoxInternal({
   );
 
   useEffect(() => {
-    const element = formRef.current;
-    if (!element || !editor) return;
+    const form = formRef.current;
+    if (!form || !editor) return;
+    const element = form.closest<HTMLElement>("[data-promptbox-shell]") ?? form;
     return registerThreadMentionDropTarget(element, {
       accepts: () => editor.isEditable && !editor.isDestroyed,
       insert: (thread, x, y) => {
@@ -2882,7 +2827,7 @@ export function PromptBoxInternal({
         insertPromptMentionPill({
           editor,
           range: { from: position, to: position },
-          resource: {
+          mention: {
             kind: "thread",
             threadId: thread.threadId,
             label: thread.label,
@@ -2897,15 +2842,15 @@ export function PromptBoxInternal({
   }, [editor, insertPromptMentionPill, onMentionQueryChange]);
 
   const applyMentionSuggestion = useCallback(
-    (item: PromptMentionSuggestion) => {
+    (item: MenuMentionSuggestion) => {
       const currentEditor = editorRef.current;
       if (!currentEditor || activeTrigger?.kind !== "mention") return;
 
-      const replacement = item.replacement.trim();
+      const replacement = item.text.trim();
       insertPromptMentionPill({
         editor: currentEditor,
         range: { from: activeTrigger.from, to: activeTrigger.to },
-        resource: promptMentionResourceFromSuggestion(item),
+        mention: item.mention,
         serializedText: replacement.startsWith(activeTrigger.char)
           ? replacement
           : `${activeTrigger.char}${replacement}`,
@@ -2937,10 +2882,7 @@ export function PromptBoxInternal({
       insertPromptMentionPill({
         editor: currentEditor,
         range: { from: activeTrigger.from, to: activeTrigger.to },
-        resource: promptCommandResourceFromSuggestion({
-          suggestion: item,
-          trigger: activeTrigger.char,
-        }),
+        mention: commandMentionTarget(item, activeTrigger.char),
         serializedText: `${activeTrigger.char}${item.name}`,
         trailingText,
         dismissedTrigger: {
@@ -3163,17 +3105,17 @@ export function PromptBoxInternal({
     [finishApply, focusAfterPromptAction, triggers],
   );
 
-  const getTextBeforeCursor = useCallback((): string | undefined => {
+  const getTextBeforeCursor = useCallback((): string | null => {
     const currentValue = valueRef.current;
     const currentEditor = editorRef.current;
     if (!currentEditor) {
       const trimmed = currentValue.trim();
-      return trimmed.length > 0 ? trimmed : undefined;
+      return trimmed.length > 0 ? trimmed : null;
     }
     const beforeCursor = currentEditor.state.doc
       .textBetween(0, currentEditor.state.selection.from, "\n", "\n")
       .trim();
-    return beforeCursor.length > 0 ? beforeCursor : undefined;
+    return beforeCursor.length > 0 ? beforeCursor : null;
   }, []);
 
   const voiceSubmitBaselineRef = useRef<string | null>(null);
@@ -3190,10 +3132,14 @@ export function PromptBoxInternal({
     () => ({
       captureHeightForLayoutChange: capturePromptBoxHeight,
       focusEnd,
-      insertTextAtCursor,
-      sendVoiceTranscript,
-      getTextBeforeCursor,
-      playVoiceCompletionTransition,
+      voice: {
+        textBeforeCursor: getTextBeforeCursor,
+        deliverTranscript: (text, delivery) => {
+          if (delivery === "send") sendVoiceTranscript(text);
+          else insertTextAtCursor(text);
+        },
+        playCompletionTransition: playVoiceCompletionTransition,
+      },
     }),
     [
       capturePromptBoxHeight,
@@ -3218,6 +3164,8 @@ export function PromptBoxInternal({
   const canPrimarySubmit = canSubmitAction(primarySubmitAction);
   const canSubmit = hasSubmittableInput && canPrimarySubmit;
   const canModifierSubmit = canSubmitAction(modifierSubmitAction);
+  const canSendSubmit = canSubmitAction(draftSubmitAction);
+  const canSteerSubmit = canSubmitAction(immediateSubmitAction);
   const composerEditorKey = pluginComposerHost?.textEffectKey ?? null;
   const submittingBlockedReason = canSubmit
     ? null
@@ -3252,7 +3200,7 @@ export function PromptBoxInternal({
     ],
   );
   const insertAtCursorForPlugin = useCallback(
-    (value: ComposerEditorInsertValue, block: boolean) => {
+    (value: ComposerDraft, block: boolean) => {
       const currentEditor = editorRef.current;
       if (!currentEditor || currentEditor.isDestroyed) return false;
       const insertion = currentEditor.chain();
@@ -3268,6 +3216,36 @@ export function PromptBoxInternal({
       return true;
     },
     [isPointerCoarse, scheduleRevealEditorSelection],
+  );
+  const submitLikeEnter = useCallback(
+    async ({ mode, ...extras }: ComposerEditorSubmission) => {
+      if (pluginComposerHost?.sendsOnEnter !== true) {
+        throw new Error("This composer cannot submit programmatically.");
+      }
+      if (!hasSubmittableInput) throw new Error("Type a message first.");
+      const runsSteer =
+        mode === "steer-if-active"
+          ? onDefaultModifierSubmit !== undefined
+          : mode === "enter" && swapSubmitActions;
+      const run = runsSteer ? onDefaultModifierSubmit : onDefaultSubmit;
+      const canRun = runsSteer ? canSteerSubmit : canSendSubmit;
+      if (run === undefined || !canRun) {
+        throw new Error(
+          submittingBlockedReason ?? "This composer can't submit right now.",
+        );
+      }
+      await run(extras);
+    },
+    [
+      canSendSubmit,
+      canSteerSubmit,
+      hasSubmittableInput,
+      onDefaultModifierSubmit,
+      onDefaultSubmit,
+      pluginComposerHost,
+      submittingBlockedReason,
+      swapSubmitActions,
+    ],
   );
   const composerEditorBridge = useMemo<ComposerEditorBridge | null>(
     () =>
@@ -3288,6 +3266,7 @@ export function PromptBoxInternal({
                 popups.some((popup) => popup.key === current.key)
               );
             },
+            submit: submitLikeEnter,
           },
     [
       composerEditorState,
@@ -3296,6 +3275,7 @@ export function PromptBoxInternal({
       closePopupForPlugin,
       popups,
       pluginComposerHost,
+      submitLikeEnter,
       suppressPluginComposerCustomizations,
     ],
   );
@@ -3375,7 +3355,7 @@ export function PromptBoxInternal({
 
   const dispatchSubmit = useCallback(() => {
     if (editorRef.current) cancelPromptThreadLinkPaste(editorRef.current);
-    onSubmit?.();
+    void Promise.resolve(onSubmit?.()).catch(ignoreReportedSubmitError);
   }, [onSubmit]);
 
   const submitPrompt = useCallback(() => {
@@ -3441,7 +3421,7 @@ export function PromptBoxInternal({
   const submitModifierPrompt = useCallback(() => {
     if (!canModifierSubmit || !onModifierSubmit) return;
     if (editorRef.current) cancelPromptThreadLinkPaste(editorRef.current);
-    onModifierSubmit();
+    void Promise.resolve(onModifierSubmit()).catch(ignoreReportedSubmitError);
   }, [canModifierSubmit, onModifierSubmit]);
 
   const applyHistoryDraft = useCallback(
@@ -3551,17 +3531,6 @@ export function PromptBoxInternal({
           activeSuggestions.length > 0
         ) {
           event.preventDefault();
-          if (
-            activeTriggerKind === "command" &&
-            !commandError &&
-            selectedIndex >= activeSuggestions.length - 1 &&
-            (commandHasMore || commandIsLoadingMore)
-          ) {
-            if (canLoadMoreCommands) {
-              loadMoreCommands();
-            }
-            return true;
-          }
           const nextIndex = (selectedIndex + 1) % activeSuggestions.length;
           const nextSuggestion = activeSuggestions[nextIndex];
           if (nextSuggestion) {
@@ -3707,18 +3676,12 @@ export function PromptBoxInternal({
     [
       activeHistoryIndex,
       activeSuggestions,
-      activeTriggerKind,
       applyHistoryDraft,
       applyTrigger,
-      canLoadMoreCommands,
-      commandError,
-      commandHasMore,
-      commandIsLoadingMore,
       dispatchAppCommandKey,
       handleComposerMenuKeyDown,
       history,
       isPointerCoarse,
-      loadMoreCommands,
       onEscape,
       onModifierSubmit,
       postCompositionKeyDownEvents,
@@ -3811,15 +3774,6 @@ export function PromptBoxInternal({
             showVoiceActionGroup && "pointer-events-none",
           )}
         >
-          {header && !showCompactLayout ? (
-            <div
-              data-promptbox-expanded-only=""
-              inert={showVoiceActionGroup ? true : undefined}
-              className="pl-4 pr-14 pt-3"
-            >
-              {header}
-            </div>
-          ) : null}
           {showCompactLayout ? (
             <AttachmentPreview
               compact
@@ -3842,7 +3796,6 @@ export function PromptBoxInternal({
               "relative",
               showCompactLayout && "min-w-0 flex-1",
               showCompactLayout && showVoiceActionGroup && "invisible",
-              showCompactVoiceAction && "pr-9",
             )}
           >
             {!showCompactLayout ? (
@@ -3930,9 +3883,6 @@ export function PromptBoxInternal({
                   selectedIndex={selectedIndex}
                   onApply={applyTrigger}
                   onDismiss={isPointerCoarse ? dismissComposerMenu : undefined}
-                  onCommandLoadMore={
-                    canLoadMoreCommands ? loadMoreCommands : undefined
-                  }
                 />
               )}
             </ComposerPopupHost>
@@ -3969,8 +3919,8 @@ export function PromptBoxInternal({
               data-promptbox-action-row=""
               className={cn(
                 "relative flex shrink-0 select-none flex-row flex-wrap items-center gap-3 pb-2 pl-3.5 pr-[13px] pt-1.5",
-                showCompactLayout && "absolute inset-y-0 right-2 gap-0 p-0",
-                showCompactLayout && showVoiceActionGroup && "inset-0",
+                showCompactLayout && "flex-nowrap gap-0 p-0 pr-2",
+                showCompactLayout && showVoiceActionGroup && "absolute inset-0",
               )}
             >
               {voice && isVoiceActionPresent ? (

@@ -5,6 +5,7 @@ import { operationEnvironment } from "./operation-environment.js";
 import {
   runEnvironmentHook,
   cancelEnvironmentHook,
+  inspectEnvironmentCleanup,
 } from "./command-handlers/environment-hook.js";
 import {
   providerCliInstallEventSchema,
@@ -605,8 +606,14 @@ const commandHandlers: CommandHandlerMap = {
 };
 
 const onlineRpcHandlers: OnlineRpcHandlerMap = {
+  "desktop.broker.prove": async (command, options) => {
+    if (!options.desktopBrowserBroker)
+      throw new Error("Desktop browser broker unavailable");
+    return options.desktopBrowserBroker.prove(command.challenge);
+  },
   "environment.hook.run": runEnvironmentHook,
   "environment.hook.cancel": cancelEnvironmentHook,
+  "environment.inspect_cleanup": inspectEnvironmentCleanup,
   "desktop.browser.list_instances": forwardDesktopBrowserCommand,
   "desktop.browser.list_tabs": forwardDesktopBrowserCommand,
   "desktop.browser.create_tab": forwardDesktopBrowserCommand,

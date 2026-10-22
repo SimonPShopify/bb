@@ -485,6 +485,7 @@ function commandRpcResponseSuccessSchemaFor<
 const hostDaemonOnlineRpcResponseSuccessSchema = z.discriminatedUnion(
   "commandType",
   [
+    onlineRpcResponseSuccessSchemaFor("desktop.broker.prove"),
     onlineRpcResponseSuccessSchemaFor("desktop.browser.list_instances"),
     onlineRpcResponseSuccessSchemaFor("desktop.browser.list_tabs"),
     onlineRpcResponseSuccessSchemaFor("desktop.browser.create_tab"),
@@ -508,6 +509,7 @@ const hostDaemonOnlineRpcResponseSuccessSchema = z.discriminatedUnion(
     onlineRpcResponseSuccessSchemaFor("host.pick_folder"),
     onlineRpcResponseSuccessSchemaFor("environment.hook.run"),
     onlineRpcResponseSuccessSchemaFor("environment.hook.cancel"),
+    onlineRpcResponseSuccessSchemaFor("environment.inspect_cleanup"),
     onlineRpcResponseSuccessSchemaFor("plugin.host.call"),
     onlineRpcResponseSuccessSchemaFor("plugin.host.cancel"),
     onlineRpcResponseSuccessSchemaFor("plugin.host.dispose"),

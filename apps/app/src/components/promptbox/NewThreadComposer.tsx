@@ -65,12 +65,12 @@ import {
   type NewThreadPromptBoxProps,
 } from "@/components/promptbox/NewThreadPromptBox";
 import { buildProviderPromptActionProps } from "@bb/client-core";
-import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
+import type { PromptMentionLinkResolver } from "@bb/client-core";
 import {
   type PluginComposerHost,
   useComposerHostSelection,
 } from "@/components/plugin/plugin-composer-host";
-import type { ExperimentalComposerSubmitOptions } from "@get-bb/plugin-sdk";
+import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
 import {
   readExecutionSelection,
   resolveComposerSelectionDeadline,
@@ -204,7 +204,6 @@ interface NewThreadComposerPromptOptions {
   placeholder?: string;
   autoFocus?: boolean;
   banner?: ReactNode;
-  header?: ReactNode;
   blockedReason?: string;
   resolveMentionLink?: PromptMentionLinkResolver;
   pluginComposerHost?: PluginComposerHost;
@@ -1580,19 +1579,6 @@ export function NewThreadComposer({
     [projectPromptHistory],
   );
   const promptInputEmpty = usePromptDraftInputEmpty(promptDraft);
-  const submitProgrammaticallyRef = useRef<
-    (
-      options: ExperimentalComposerSubmitOptions,
-      pluginSubmission: NewThreadComposerSubmission["pluginSubmission"],
-    ) => Promise<void>
-  >(async () => {});
-  const submitProgrammaticallyThroughRef = useCallback(
-    (
-      options: ExperimentalComposerSubmitOptions,
-      pluginSubmission: NewThreadComposerSubmission["pluginSubmission"],
-    ) => submitProgrammaticallyRef.current(options, pluginSubmission),
-    [],
-  );
   const seededExecutionInputSources = useMemo(
     (): CreateExecutionInputSources => ({
       ...(seed?.providerId !== undefined
@@ -1648,8 +1634,7 @@ export function NewThreadComposer({
   const submitDraft = useCallback(
     async (
       blockedReason: string | null,
-      submitOptions: ExperimentalComposerSubmitOptions | null,
-      pluginSubmission?: NewThreadComposerSubmission["pluginSubmission"],
+      { sendAt, pluginSubmission }: ComposerSubmitExtras,
     ) => {
       const submittedDraft = promptDraft.getCurrent();
       const input = promptDraftToInput(submittedDraft);
@@ -1691,9 +1676,7 @@ export function NewThreadComposer({
         ),
         environment: submissionEnvironment,
         input,
-        ...(submitOptions?.sendAt === undefined
-          ? {}
-          : { sendAt: submitOptions.sendAt }),
+        ...(sendAt === undefined ? {} : { sendAt }),
         ...(pluginSubmission === undefined ? {} : { pluginSubmission }),
       };
       isSubmittingRef.current = true;
@@ -1747,21 +1730,10 @@ export function NewThreadComposer({
   );
 
   const handleSubmit = useCallback(
-    async (blockedReason: string | null) => {
-      try {
-        await submitDraft(blockedReason, null);
-      } catch {}
-    },
+    (blockedReason: string | null, extras: ComposerSubmitExtras = {}) =>
+      submitDraft(blockedReason, extras),
     [submitDraft],
   );
-  useEffect(() => {
-    submitProgrammaticallyRef.current = async (
-      submitOptions,
-      pluginSubmission,
-    ) => {
-      await submitDraft(null, submitOptions, pluginSubmission);
-    };
-  }, [submitDraft]);
 
   const handleProviderChange = useDraftPreservingOptionChange(
     selectedProviderId,
@@ -1946,7 +1918,7 @@ export function NewThreadComposer({
       subscribeSelection,
       setDraft: promptDraft.setDraft,
       focus: focusPromptBox,
-      submit: submitProgrammaticallyThroughRef,
+      sendsOnEnter: true,
       setSelection,
     }),
     [
@@ -1959,7 +1931,6 @@ export function NewThreadComposer({
       promptDraft.subscribe,
       setSelection,
       subscribeSelection,
-      submitProgrammaticallyThroughRef,
     ],
   );
 
@@ -1980,7 +1951,9 @@ export function NewThreadComposer({
           id={options.id}
           focusRequest={promptBoxFocusRequest}
           onChange={promptDraft.setTextAndMentions}
-          onSubmit={() => void handleSubmit(options.blockedReason ?? null)}
+          onSubmit={(extras) =>
+            handleSubmit(options.blockedReason ?? null, extras)
+          }
           isSubmitting={isSubmitting}
           disabled={disabledReason !== null}
           disabledReason={disabledReason ?? undefined}
@@ -2010,9 +1983,6 @@ export function NewThreadComposer({
               suggestions: commandSuggestions.suggestions,
               isLoading: commandSuggestions.isLoading,
               isError: commandSuggestions.isError,
-              hasMore: commandSuggestions.hasMore,
-              isLoadingMore: commandSuggestions.isLoadingMore,
-              loadMore: commandSuggestions.loadMore,
               onQueryChange: (query, trigger) =>
                 setCommandState({ query, trigger }),
               onEditorFocus: handleEditorFocus,
@@ -2105,7 +2075,6 @@ export function NewThreadComposer({
                   }
                 />
               )),
-            header: options.header,
           }}
           project={{
             projects: projectOptions,

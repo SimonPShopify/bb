@@ -17,6 +17,13 @@ import {
   pathListIncludeQueryValueSchema,
 } from "./shared.js";
 
+export const environmentCleanupQuerySchema = z.object({
+  recover: z.enum(["true", "false"]).default("false"),
+});
+export type EnvironmentCleanupQuery = z.input<
+  typeof environmentCleanupQuerySchema
+>;
+
 export const environmentNameSchema = z.string().trim().min(1).max(80);
 
 export const updateEnvironmentRequestSchema = z

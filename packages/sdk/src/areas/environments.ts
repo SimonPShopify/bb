@@ -172,7 +172,9 @@ export type EnvironmentListProvidersResult = SystemEnvironmentProvider[];
 const okResponseSchema = z.object({ ok: z.literal(true) });
 
 export interface EnvironmentsArea {
-  experimental_cleanup(args: EnvironmentActionArgs): Promise<{ ok: true }>;
+  experimental_cleanup(
+    args: EnvironmentActionArgs & { recover?: boolean },
+  ): Promise<{ ok: true }>;
   archiveThreads(
     args: EnvironmentActionArgs,
   ): Promise<EnvironmentArchiveThreadsResult>;
@@ -480,6 +482,7 @@ export function createEnvironmentsArea(
       return transport.readJson(
         transport.api.v1.environments[":id"]["cleanup"].$post({
           param: { id: input.environmentId },
+          query: { recover: input.recover === true ? "true" : "false" },
         }),
       );
     },

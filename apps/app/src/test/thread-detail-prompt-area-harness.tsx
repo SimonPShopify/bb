@@ -1,3 +1,4 @@
+import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
 import type {
   PendingInteraction,
   PermissionMode,
@@ -27,6 +28,12 @@ export const promptAreaMocks = {
   deleteQueuedMessageMutateAsync: vi.fn(),
   navigate: vi.fn(),
   pluginComposerHost: null as PluginComposerHost | null,
+  composerSubmit: null as
+    | ((extras?: ComposerSubmitExtras) => void | Promise<void>)
+    | null,
+  composerModifierSubmit: null as
+    | ((extras?: ComposerSubmitExtras) => void | Promise<void>)
+    | null,
   promptDraft: {
     addAttachment: vi.fn(),
     attachments: [] as PromptDraftAttachment[],
@@ -115,8 +122,10 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
         message: string;
         onChangeMessage: (message: string, mentions: []) => void;
         onEscape?: () => void;
-        onModifierSubmit: () => void;
-        onSubmit: () => void;
+        onModifierSubmit: (
+          extras?: ComposerSubmitExtras,
+        ) => void | Promise<void>;
+        onSubmit: (extras?: ComposerSubmitExtras) => void | Promise<void>;
         submitLabel?: string;
         submitIcon?: string;
         submitTitle?: string;
@@ -290,6 +299,9 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
               type="button"
               onClick={() => {
                 promptAreaMocks.pluginComposerHost = pluginComposerHost;
+                promptAreaMocks.composerSubmit = composer?.onSubmit ?? null;
+                promptAreaMocks.composerModifierSubmit =
+                  composer?.onModifierSubmit ?? null;
               }}
             >
               Capture plugin host
@@ -305,11 +317,11 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
                 composer.onChangeMessage(event.currentTarget.value, [])
               }
             />
-            <button type="button" onClick={composer.onSubmit}>
+            <button type="button" onClick={() => composer.onSubmit()}>
               Submit composer
             </button>
             {composer.canModifierSubmit ? (
-              <button type="button" onClick={composer.onModifierSubmit}>
+              <button type="button" onClick={() => composer.onModifierSubmit()}>
                 Modifier submit
               </button>
             ) : null}
@@ -571,11 +583,8 @@ vi.mock("@/hooks/useCommandSuggestions", () => ({
     providerId: string;
     commandScope: string;
   }) => ({
-    hasMore: false,
     isError: false,
     isLoading: false,
-    isLoadingMore: false,
-    loadMore: vi.fn(),
     suggestions: [{ name: `${providerId}:${commandScope}` }],
     triggers: [],
   }),
@@ -740,6 +749,9 @@ vi.mock("@/hooks/queries/thread-queries", () => ({
   orderPendingInteractions: (
     interactions: readonly PendingInteraction[] | undefined,
   ) => interactions ?? [],
+}));
+
+vi.mock("@/hooks/queries/thread-panel-queries", () => ({
   useThreadPromptHistory: (threadId: string, options: unknown) => {
     promptAreaMocks.useThreadPromptHistory(threadId, options);
     return { data: [] };

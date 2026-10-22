@@ -1,8 +1,3 @@
-import { isProjectlessProjectId } from "@bb/client-core";
-import {
-  THREAD_MENTION_RESOLVE_MAX_IDS,
-  type ResolveThreadMentionsResponse,
-} from "@bb/server-contract";
 import { Extension, getChangedRanges, type Editor } from "@tiptap/core";
 import { closeHistory, isHistoryTransaction } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
@@ -10,18 +5,19 @@ import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import {
   findPastedThreadLinkCandidates,
   type PastedThreadLink,
+  type ThreadLinkParser,
 } from "../mentions/pasted-thread-link-candidates";
+import {
+  resolveThreadMentionsInBatches,
+  type ResolveThreadMentionBatch,
+  type ThreadMentionResolution,
+} from "@/lib/thread-links";
 import { promptEditorSerializationFromDoc } from "./prompt-editor-serialization";
 
-type ThreadMentionResolution = ResolveThreadMentionsResponse[number];
-
 interface PromptThreadLinkPasteOptions {
-  getOrigin: () => string;
+  parseLink: ThreadLinkParser;
   getCachedThread: (threadId: string) => ThreadMentionResolution | null;
-  resolveThreads: (
-    threadIds: string[],
-    signal: AbortSignal,
-  ) => Promise<readonly ThreadMentionResolution[]>;
+  resolveThreads: ResolveThreadMentionBatch;
 }
 
 interface PendingPaste {
@@ -69,11 +65,11 @@ function isConvertibleText(
 
 function documentLinks(
   doc: ProseMirrorNode,
-  origin: string,
+  parseLink: ThreadLinkParser,
   findLinks = findPastedThreadLinkCandidates,
 ): PastedThreadLink[] {
   const { text, offsetMapping } = promptEditorSerializationFromDoc(doc);
-  return findLinks({ text, origin }).flatMap((link) => {
+  return findLinks({ text, parseLink }).flatMap((link) => {
     const first = offsetMapping.find(
       (segment) =>
         segment.kind === "text" &&
@@ -100,13 +96,13 @@ function documentLinks(
 
 function pastedOccurrences(
   transaction: Transaction,
-  origin: string,
+  parseLink: ThreadLinkParser,
   literalLinkIndexes: number[],
 ): PastedThreadLink[] {
   const inserted = getChangedRanges(transaction).map(
     ({ newRange }) => newRange,
   );
-  return documentLinks(transaction.doc, origin)
+  return documentLinks(transaction.doc, parseLink)
     .filter((link) =>
       inserted.some((range) => link.from >= range.from && link.to <= range.to),
     )
@@ -120,10 +116,10 @@ function pastedOccurrences(
 function eligibleOccurrences(
   doc: ProseMirrorNode,
   paste: PendingPaste,
-  origin: string,
+  parseLink: ThreadLinkParser,
   findLinks: typeof findPastedThreadLinkCandidates,
 ): PastedThreadLink[] {
-  return documentLinks(doc, origin, findLinks).filter((link) =>
+  return documentLinks(doc, parseLink, findLinks).filter((link) =>
     paste.occurrences.some(
       (occurrence) =>
         link.from === occurrence.from &&
@@ -174,7 +170,7 @@ export function createPromptThreadLinkPasteExtension(
       const eligible = eligibleOccurrences(
         editor.state.doc,
         paste,
-        options.getOrigin(),
+        options.parseLink,
         findLinks,
       );
       const transaction = editor.state.tr;
@@ -182,9 +178,7 @@ export function createPromptThreadLinkPasteExtension(
         const thread = resolved.get(occurrence.threadId);
         if (
           !thread ||
-          (occurrence.projectId === null
-            ? !isProjectlessProjectId(thread.projectId)
-            : occurrence.projectId !== thread.projectId) ||
+          occurrence.projectId !== thread.projectId ||
           !isConvertibleText(transaction.doc, occurrence)
         )
           continue;
@@ -193,7 +187,7 @@ export function createPromptThreadLinkPasteExtension(
           occurrence.to,
           editor.schema.nodes.mention!.create(
             {
-              resource: {
+              mention: {
                 kind: "thread",
                 ...thread,
                 label: thread.label.trim() || thread.threadId,
@@ -225,7 +219,7 @@ export function createPromptThreadLinkPasteExtension(
         eligibleOccurrences(
           editor.state.doc,
           paste,
-          options.getOrigin(),
+          options.parseLink,
           findLinks,
         ).map((link) => link.threadId),
       )) {
@@ -233,28 +227,14 @@ export function createPromptThreadLinkPasteExtension(
         if (cached?.threadId === id) resolved.set(id, cached);
         else missing.push(id);
       }
-      const batches: Promise<void>[] = [];
-      for (
-        let index = 0;
-        index < missing.length;
-        index += THREAD_MENTION_RESOLVE_MAX_IDS
-      ) {
-        const ids = missing.slice(
-          index,
-          index + THREAD_MENTION_RESOLVE_MAX_IDS,
-        );
-        batches.push(
-          (async () => {
-            const threads = await options.resolveThreads(ids, signal);
-            if (signal.aborted) return;
-            for (const thread of threads) {
-              if (ids.includes(thread.threadId))
-                resolved.set(thread.threadId, thread);
-            }
-          })(),
-        );
-      }
-      await Promise.allSettled(batches);
+      await resolveThreadMentionsInBatches(
+        missing,
+        options.resolveThreads,
+        signal,
+        ({ threads }) => {
+          for (const thread of threads) resolved.set(thread.threadId, thread);
+        },
+      );
     } catch {
       return;
     } finally {
@@ -286,7 +266,7 @@ export function createPromptThreadLinkPasteExtension(
         ) {
           const occurrences = pastedOccurrences(
             current,
-            options.getOrigin(),
+            options.parseLink,
             metadata.literalLinkIndexes ?? [],
           );
           if (occurrences.length === 0) continue;

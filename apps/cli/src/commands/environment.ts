@@ -376,15 +376,24 @@ export function registerEnvironmentCommands(
   environment
     .command("cleanup <id>")
     .description("Clean up an unused provider-managed environment")
+    .option(
+      "--recover",
+      "After inspection, acknowledge interrupted hooks and retry failed cleanup (Linux, same-user cwd/maps guard; inspect other users separately)",
+    )
     .option("--json", "Print machine-readable JSON output")
     .action(
-      action(async (id: string, opts: { json?: boolean }) => {
-        const result = await createCliBbSdk(
-          getUrl(),
-        ).environments.experimental_cleanup({ environmentId: id });
-        if (!outputJson(opts, result))
-          console.log("Environment cleanup requested.");
-      }),
+      action(
+        async (id: string, opts: { json?: boolean; recover?: boolean }) => {
+          const result = await createCliBbSdk(
+            getUrl(),
+          ).environments.experimental_cleanup({
+            environmentId: id,
+            recover: opts.recover,
+          });
+          if (!outputJson(opts, result))
+            console.log("Environment cleanup requested.");
+        },
+      ),
     );
 
   environment
@@ -489,7 +498,7 @@ export function registerEnvironmentCommands(
         if (outputJson(opts, rows)) return;
         for (const env of rows) {
           console.log(
-            `${env.id}  ${env.status}  ${env.environmentProviderId ?? "-"}  ${env.path ?? "-"}`,
+            `${env.id}  ${env.status}  ${env.environmentProviderId ?? "-"}  ${env.path ?? "-"}${env.lifecycle.teardown?.message ? `  ${env.lifecycle.teardown.message}` : ""}`,
           );
         }
       }),
@@ -598,6 +607,11 @@ export function registerEnvironmentCommands(
         }
         if (status.mergeBase) {
           console.log(`Merge base: ${status.mergeBase.mergeBaseBranch}`);
+          if (!status.mergeBase.squashMergeCheckComplete) {
+            console.log(
+              "Squash-merge check incomplete; counts may include already-merged commits.",
+            );
+          }
           console.log(`Ahead: ${status.mergeBase.aheadCount}`);
           console.log(`Behind: ${status.mergeBase.behindCount}`);
         }

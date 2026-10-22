@@ -1,6 +1,7 @@
 import { type HostDaemonRpcCommand } from "@bb/host-daemon-contract";
 
 const hostCommandWakePolicy = {
+  "desktop.broker.prove": "never",
   "server_move.abort": "never",
   "server_move.activate": "never",
   "server_move.delete_old_copy": "never",
@@ -47,6 +48,7 @@ const hostCommandWakePolicy = {
   "host.pick_folder": "work",
   "environment.hook.run": "work",
   "environment.hook.cancel": "never",
+  "environment.inspect_cleanup": "never",
   "plugin.host.call": "work",
   "plugin.host.cancel": "never",
   "plugin.host.dispose": "never",

@@ -17,7 +17,7 @@ import { hasThreadTimelineUnseenEvents } from "@/hooks/cache-owners/thread-timel
 import { useConnectionAwareQueryState } from "@/hooks/queries/connection-aware-query-state";
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";
 import { isTransientReadError } from "@/hooks/queries/query-helpers";
-import { useThreadTimeline } from "@/hooks/queries/thread-queries";
+import { useThreadTimeline } from "@/hooks/queries/thread-panel-queries";
 import { BbHttpError, sdk } from "@/lib/sdk";
 
 type TimelineQueryResultProp =

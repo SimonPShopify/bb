@@ -70,9 +70,11 @@ vi.mock("@/lib/sdk", async (importOriginal) => {
   };
 });
 
-vi.mock("@/hooks/queries/thread-queries", async (importOriginal) => {
+vi.mock("@/hooks/queries/thread-panel-queries", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@/hooks/queries/thread-queries")>();
+    await importOriginal<
+      typeof import("@/hooks/queries/thread-panel-queries")
+    >();
   return {
     ...actual,
     useThreadTimeline: (...args: Parameters<typeof actual.useThreadTimeline>) =>

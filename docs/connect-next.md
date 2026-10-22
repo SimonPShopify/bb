@@ -172,9 +172,10 @@ is unchanged and still trusts local callers.
 
 ## Plugin
 
-`plugins/connect-next` ships as a builtin plugin that is disabled by default. Once enabled, it does
-nothing until its `enabled` setting ("Reach this bb at its next address (beta)", default `false`)
-is on and bb account is signed in.
+`plugins/connect-next` ships as a builtin plugin that is disabled by default. Enabling it is the
+opt-in: its `enabled` setting ("Reach this bb at its next address (beta)") defaults to `true`, so the
+tunnel starts as soon as bb account is signed in. The setting (or `bb connect-next off`) turns the
+next address off without disabling the plugin.
 
 - **Identity.** It follows bb account (`bb-account.v1.status` / `waitForStatusChange`) for
   `serverId`, `serverLabel` and `baseUrl`, and reads the link credential with `bb-account.v1.connectCredential`,
@@ -486,8 +487,8 @@ prints one `PASS`/`FAIL` line per check (exit status 1 on any failure; results a
 4. Starts a bb server from source in development mode on a data dir in the work dir, signs it in
    with `bb account login --code` (the real redeem), then restarts it in production mode so it serves
    `apps/app/dist`, with `BB_CONNECT_GATE_KEYS_URL` at local bb-web, `BB_CONNECT_NEXT_SERVER` at the
-   gate and `BB_CONNECT_FRPC` at the cached frpc. It enables `bb--connect-next` and runs
-   `bb connect-next on`. No host daemon runs on the server machine, so host-backed API calls for it
+   gate and `BB_CONNECT_FRPC` at the cached frpc. It enables `bb--connect-next`, which turns
+   the next address on (`bb connect-next on` is then a no-op the script still checks). No host daemon runs on the server machine, so host-backed API calls for it
    answer 502; before the production start it writes a host row and `host-id` into the data dir so
    the server has a server machine to share ports from. Other machines' daemons start later (see
    Machines below).
@@ -575,13 +576,14 @@ An address that leaves DNS takes its labels with it. Every peer route requires
 
 Announcements. When a label's first proxy opens or its last one closes on a machine, it posts
 `{label, machineId, region, state, at}` to `POST /__peer/announce` on every peer (fire and forget,
-1 s timeout). A machine that stops posts `{machineId, at}` once to `POST /__peer/goodbye`, and each
+2 s timeout). A machine that stops posts `{machineId, at}` once to `POST /__peer/goodbye`, and each
 peer forgets every label it believed that machine held since before `at`. Each machine keeps label → `{machineId, region, at}`; the newest `at` wins (machine id
 breaks a tie), and a `disconnected` only clears the entry it names. Share subdomains follow their
 label: they live on the same frpc.
 
 Lookup on a miss. A label nobody announced is asked of every peer in parallel
-(`GET /__peer/labels/<label>`, 300 ms timeout); a peer answers only for tunnels it holds itself. A
+(`GET /__peer/labels/<label>`, 1.5 s timeout: a first request over the private network from syd or sin to
+ams or fra takes about 600 ms); a peer answers only for tunnels it holds itself. A
 positive answer stays until an announcement changes it, a negative one for 2 s. A visitor whose label
 is offline everywhere still gets the 15 s wait for a tunnel that dropped on this machine, and that
 wait ends early when another machine announces the label.
@@ -643,7 +645,7 @@ region as above.
 
 Failure modes:
 
-- A peer is down or slow: lookups wait at most 300 ms for it, announcements to it are dropped, and it
+- A peer is down or slow: lookups wait at most 1.5 s for it, announcements to it are dropped, and it
   leaves the map when it leaves DNS. Labels it held go offline until their frpc redials elsewhere.
 - An announcement is lost: the next visitor for that label looks it up; a stale positive entry is
   corrected the first time a replay reaches a machine that no longer holds the label.
