@@ -19,6 +19,7 @@ import {
   secretRequestResponseSchema,
 } from "./src/secret-request.js";
 import { reconcileDotenv } from "./src/dotenv.js";
+import { lastFolderLabel, splitDestination } from "./src/destination-label.js";
 
 function SecretRequestInteraction({
   interaction,
@@ -94,20 +95,11 @@ function SecretRequestInteraction({
   };
 
   const textInset = compact ? "px-2.5" : undefined;
-  const destinationSeparator = Math.max(
-    payload.destination.path.lastIndexOf("/"),
-    payload.destination.path.lastIndexOf("\\"),
-  );
-  const destinationTail = payload.destination.path.slice(
-    destinationSeparator + 1,
-  );
-  const destinationName = destinationTail || payload.destination.path;
+  const destination = splitDestination(payload.destination.path);
   const destinationFolder =
-    destinationSeparator < 0 || !destinationTail
-      ? ""
-      : formatHomePathForDisplay(
-          payload.destination.path.slice(0, Math.max(destinationSeparator, 1)),
-        );
+    destination.folder === null
+      ? null
+      : lastFolderLabel(formatHomePathForDisplay(destination.folder));
 
   return (
     <form
@@ -153,12 +145,18 @@ function SecretRequestInteraction({
           </span>
         ) : (
           <>
-            <span className="min-w-0 truncate font-medium text-foreground">
-              {destinationName}
+            <span className="flex min-w-0 font-medium text-foreground">
+              <span className="truncate">{destination.stem}</span>
+              {destination.extension ? (
+                <span className="shrink-0">{destination.extension}</span>
+              ) : null}
             </span>
-            <span dir="rtl" className="min-w-12 flex-1 truncate">
-              {`\u200e${destinationFolder}\u200e`}
-            </span>
+            {destinationFolder === null ? null : (
+              <>
+                <span className="shrink-0">in</span>
+                <span className="min-w-0 truncate">{destinationFolder}</span>
+              </>
+            )}
           </>
         )}
       </button>

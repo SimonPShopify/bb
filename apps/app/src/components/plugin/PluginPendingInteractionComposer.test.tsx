@@ -642,8 +642,10 @@ describe("PluginPendingInteractionComposer", () => {
         name: `Saves to ${secretRequest.data.destination.path}`,
       });
       expect(destination.getAttribute("aria-expanded")).toBe("false");
-      expect(screen.getByText(".env").className).toContain("font-medium");
-      expect(destination.textContent).toContain("~/projects/droplet-monitor");
+      expect(screen.getByText(".env").parentElement?.className).toContain(
+        "font-medium",
+      );
+      expect(destination.textContent).toBe("Saves to.envin…/droplet-monitor");
       expect(screen.queryByText(/Writes to/)).toBeNull();
       fireEvent.click(destination);
       expect(destination.getAttribute("aria-expanded")).toBe("true");
@@ -687,7 +689,7 @@ describe("PluginPendingInteractionComposer", () => {
         name: `Saves to ${secretRequest.data.destination.path}`,
       });
       expect(destination.textContent).toContain(".env");
-      expect(destination.textContent).toContain("~/projects/droplet-monitor");
+      expect(destination.textContent).toBe("Saves to.envin…/droplet-monitor");
       const inputClasses = screen
         .getByLabelText("OPENROUTER_API_KEY")
         .className.split(" ");
