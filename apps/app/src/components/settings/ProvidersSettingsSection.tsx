@@ -32,6 +32,7 @@ import {
   useSystemProviderCatalog,
   useSystemProviders,
 } from "@/hooks/queries/system-queries";
+import { ProviderSessionImportSection } from "./ProviderSessionImportSection";
 import {
   SETTINGS_DROPDOWN_CONTENT_CLASS,
   SETTINGS_DROPDOWN_TRIGGER_CLASS,
@@ -294,6 +295,10 @@ export function ProvidersSettingsSection({
   const [optimisticOrder, setOptimisticOrder] = useState<string[] | null>(null);
   const providers = applyProviderOrder(serverProviders, optimisticOrder);
   const ids = providers.map((provider) => provider.id);
+  const sessionImportProvider = catalog.find(
+    (provider) =>
+      provider.id === "pi" && provider.enabled && provider.pluginEnabled,
+  );
 
   const handleReorder = (activeId: string, overId: string): void => {
     const next = reorderProviderIds(ids, activeId, overId);
@@ -373,6 +378,13 @@ export function ProvidersSettingsSection({
           </SortableSettingsRowList>
         )}
       </SettingsSection>
+      {sessionImportProvider === undefined ? null : (
+        <ProviderSessionImportSection
+          providerId={sessionImportProvider.id}
+          displayName={sessionImportProvider.displayName}
+          disabled={controlsDisabled}
+        />
+      )}
       <SettingsSection title="Configuration">
         <div className="space-y-5">
           <SettingsWithControl

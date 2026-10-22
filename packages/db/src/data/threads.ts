@@ -289,7 +289,7 @@ export class InvalidLifecycleOwnerError extends Error {
 }
 
 export function createThread(
-  db: DbConnection,
+  db: ThreadWriteConnection,
   notifier: DbNotifier,
   input: CreateThreadInput,
 ) {

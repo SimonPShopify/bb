@@ -438,6 +438,14 @@ import {
   type ServerMoveStatus,
   type ServerMoveStatusResponse,
 } from "./api/server-move.js";
+import {
+  providerSessionsQuerySchema,
+  importProviderSessionRequestSchema,
+  type ProviderSessionsQuery,
+  type ProviderSessionsResponse,
+  type ImportProviderSessionRequest,
+  type ImportProviderSessionResponse,
+} from "./api/provider-sessions.js";
 import type { ApiError } from "./errors.js";
 
 type PathProjectSourceId = { param: { id: string; sourceId: string } };
@@ -2090,6 +2098,22 @@ export const publicApiRoutes = {
         systemProvidersQuerySchema,
       ),
       response: jsonResponse<SystemProviderInfo[]>(),
+    }),
+    providerSessions: defineRoute({
+      path: "/system/providers/:id/sessions",
+      method: "get",
+      request: queryRequest<PathId, ProviderSessionsQuery>(
+        providerSessionsQuerySchema,
+      ),
+      response: jsonResponse<ProviderSessionsResponse>(),
+    }),
+    importProviderSession: defineRoute({
+      path: "/system/providers/:id/sessions/import",
+      method: "post",
+      request: jsonRequest<PathId, ImportProviderSessionRequest>(
+        importProviderSessionRequestSchema,
+      ),
+      response: jsonResponse<ImportProviderSessionResponse>(),
     }),
     providerCatalog: defineRoute({
       path: "/system/providers/catalog",

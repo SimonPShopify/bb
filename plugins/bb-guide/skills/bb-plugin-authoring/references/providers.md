@@ -161,6 +161,18 @@ not reject the complete answer; it limits each side and applies the correct
 skill or command shape. Root semantics and precedence are in
 `docs/provider-plugin-api.md` §1.
 
+### Native session import
+
+A provider that can discover resumable sessions on its host may compose
+`experimental_providerSessionImportHostContract` into its host entry. The list
+method returns opaque source keys and bounded session metadata. The import
+method resolves one source key, stages the provider's resumable session under a
+stable provider thread id, and returns a normalized active-branch transcript.
+The server owns project and environment matching, BB thread creation, history
+seeding, idempotency, and the SDK, CLI, and UI workflow. Keep source paths
+host-local, validate session files before returning them, and never accept an
+arbitrary destination path from the caller.
+
 ### The bridge
 
 A provider bridge ships inside the plugin's `bb.host` artifact — the same

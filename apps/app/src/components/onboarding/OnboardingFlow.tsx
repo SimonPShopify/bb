@@ -91,6 +91,7 @@ import {
   recordTelemetryEvent,
   type OnboardingEntry,
 } from "./onboarding-telemetry";
+import { OnboardingPiSessionImport } from "./OnboardingPiSessionImport";
 import { useOnboardingProjectImport } from "./useOnboardingProjectImport";
 
 const SIGN_IN_POLL_INTERVAL_MS = 3_000;
@@ -472,6 +473,8 @@ function AgentStepContainer({
                   }
                   onExit={handleSignInExit}
                 />
+              ) : health.providerId === "pi" && health.status === "ready" ? (
+                <OnboardingPiSessionImport hostId={hostId} />
               ) : undefined,
           };
         });

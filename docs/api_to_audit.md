@@ -14,6 +14,75 @@ question.
 [provider-bridge-protocol.md](provider-bridge-protocol.md). An entry without
 a "Docs:" line has no owning doc, so it keeps the essential contract itself.
 
+## Provider session import host contract (`@get-bb/plugin-sdk/host`)
+
+`experimental_providerSessionImportHostContract` defines two host RPCs:
+`listSessions({ providerId })` returns `{ sessions }`, and
+`importSession({ providerId, sourceKey })` returns
+`{ session, providerThreadId, transcript }`. The host owns discovery, source-key
+resolution, raw provider session copying, and transcript normalization. It does
+not create bb threads, select projects, or apply server product policy.
+
+`experimental_providerSessionSchema` and `ExperimentalProviderSession` carry
+an opaque stable `sourceKey`, host-local absolute `sourcePath`, original
+`sessionId`, `cwd`, nullable `name`, ISO-8601 `createdAt`/`modifiedAt`, active-branch
+`messageCount`, first user message text (`firstMessage`, empty when absent), and
+nullable canonical `model` and `reasoningLevel`. `cwd` may be empty for legacy
+sessions without that metadata. A source key survives appends to that source;
+it is not a content hash. Import accepts a discovered key, not an arbitrary
+path or caller-chosen destination.
+
+`experimental_providerSessionTranscriptItemSchema` and
+`ExperimentalProviderSessionTranscriptItem` describe ordered `text`, `image`,
+`reasoning`, `toolCall`, and `toolResult` items with stable source-derived ids
+and ISO-8601 timestamps. Text/images have user, assistant, or system roles.
+Tool calls retain their call id, name, and a bounded JSON argument projection;
+results retain the matching call id/name, bounded text projection, and error
+status. Visible text, reasoning, images, metadata, and the complete transcript
+also have transport bounds. Full payloads remain in the resumable raw provider
+session, with a timeline marker when later visible items are omitted.
+`ExperimentalProviderSessionImportResult` and
+`ExperimentalProviderSessionImportHostContract` expose the result and contract
+types. JSON details use null when absent. Import retains full active-branch
+history, including messages preceding compaction, rather than only the compacted
+LLM context. Non-message provider metadata need not become transcript items.
+
+Current caller/implementation: the Pi provider's `plugins/provider-pi/src/host.ts`
+composes this contract with native-root discovery. Core session-import routes,
+the SDK, CLI, and Providers settings all use this contract through the same
+server service rather than a parallel provider-specific path.
+
+Pi recursively scans `~/.pi/agent/sessions`, excludes symlink entries and its
+configured bb bridge subtree, skips unreadable/invalid/unsupported sessions,
+and sorts newest modified first. Listing walks each active branch for metadata
+without materializing transcript items; imports perform full normalization. Core
+accepts only absolute non-root cwd values
+that match the selected host platform. Individual files are bounded to 64 MiB.
+Tool argument and result projections are
+bounded so the normalized transcript remains practical for host RPC transport.
+Version 1 linear sessions and version 2/3 trees are supported. The last entry
+selects the active branch; session names follow the latest session-info entry.
+Message timestamps take precedence over entry/header fallback timestamps.
+Unknown metadata entries remain in the raw copy; unknown message roles or
+content blocks and malformed trees are refused rather than silently losing
+history. System, hook, custom, branch-summary, and compaction messages stay in
+the resumable raw session but are omitted from BB's visible transcript. Source
+keys hash root-relative paths and destination ids are
+`pi-import-<sha256(sourceKey)>`. Raw bytes are atomically published into the
+bridge directory without replacing an existing file. Retries reuse an existing
+regular destination, including after BB has continued the imported session;
+symlinks, non-files, and files over the size limit are refused.
+
+Before stabilization, verify another provider can use this transcript shape,
+audit source identity across moves and replaced files, define partial discovery
+diagnostics and pagination, and test host RPC result-size limits with large
+histories/images. Audit source mutation during discovery/import, cross-process
+concurrent retries, platform-specific filesystem permissions and atomic copy
+behavior, and server history seeding/resume consistency. Confirm discovery and
+import policy, cancellation/retry UX, SDK/CLI/UI parity, and whether archived or
+deleted imports should be restored or replaced. This adds plugin host RPC methods
+without changing daemon wire fields or the daemon protocol version.
+
 ## Composer popups
 
 `ComposerCustomization.experimental_popups` registers `{ id, label, component }`

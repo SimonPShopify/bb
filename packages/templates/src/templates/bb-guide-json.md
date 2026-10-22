@@ -89,6 +89,13 @@ the most-parsed commands ends with the same shape.
   bb provider models [providerId] --json
     [{id, model, displayName, supportedReasoningEfforts, defaultReasoningEffort, supportedServiceTiers?, isDefault}]    (bare array)
 
+  bb provider sessions <providerId> --json
+    {sessions: [{sourceKey, sessionId, cwd, name, createdAt, modifiedAt, messageCount, firstMessage, model, reasoningLevel}]}
+
+  bb provider import-sessions <providerId> [--source-key <key>]... --json
+    {results: [{sourceKey, threadId, created} | {sourceKey, error}], created, skipped, failed}
+    Partial failures still return the summary and exit nonzero.
+
   bb environment list --json
     [{id, name, projectId, hostId, path, branchName, status, lifecycle}]    (bare array)
 

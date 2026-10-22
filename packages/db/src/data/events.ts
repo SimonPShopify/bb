@@ -58,6 +58,7 @@ import {
   environments,
   events,
   promptHistoryEntries,
+  projects,
   threadDynamicContextFileStates,
   threadSearchSegments,
   threads,
@@ -276,6 +277,7 @@ export type AppendStoredThreadEventArgs<
   [TEventType in TType]: {
     data: StoredThreadEventDataForType<TEventType>;
     environmentId?: string | null;
+    createdAt?: number;
     providerThreadId?: string | null;
     scope: ThreadEventScope;
     threadId: string;
@@ -1058,7 +1060,7 @@ export function appendStoredThreadEventsInTransaction(
     insertStoredEventRow(db, {
       attachmentOwnership: "required",
       conflict: "error",
-      createdAt: now,
+      createdAt: args.createdAt ?? now,
       data: JSON.stringify(args.data),
       environmentId: args.environmentId ?? null,
       itemId: itemFields.itemId,
@@ -3801,6 +3803,19 @@ function readStoredProviderThreadClaim(
       and(
         eq(events.type, "thread/identity"),
         eq(events.providerThreadId, providerThreadId),
+        isNull(threads.deletedAt),
+        isNull(threads.archivedAt),
+        notExists(
+          db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, threads.projectId),
+                isNotNull(projects.deletedAt),
+              ),
+            ),
+        ),
         eq(threads.providerId, scope.providerId),
         scope.hostId === null
           ? undefined
@@ -3818,6 +3833,13 @@ function readStoredProviderThreadClaim(
           WHERE earliest.type = 'thread/identity'
             AND earliest.provider_thread_id = ${providerThreadId}
             AND earliest_thread.provider_id = ${scope.providerId}
+            AND earliest_thread.deleted_at IS NULL
+            AND earliest_thread.archived_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM projects AS earliest_project
+              WHERE earliest_project.id = earliest_thread.project_id
+                AND earliest_project.deleted_at IS NOT NULL
+            )
             AND ${earliestHostCondition}
           ORDER BY earliest.created_at
           LIMIT 1

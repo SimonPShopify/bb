@@ -1,3 +1,5 @@
+export { getProviderSessionOwnerThread } from "./provider-session-import.js";
+
 export {
   createProject,
   ensurePersonalProject,

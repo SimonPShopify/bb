@@ -27,6 +27,15 @@ export {
   type ExperimentalNativeRootsResolveOutput,
 } from "./native-roots-contract.js";
 export {
+  experimental_providerSessionImportHostContract,
+  experimental_providerSessionSchema,
+  experimental_providerSessionTranscriptItemSchema,
+  type ExperimentalProviderSession,
+  type ExperimentalProviderSessionImportHostContract,
+  type ExperimentalProviderSessionImportResult,
+  type ExperimentalProviderSessionTranscriptItem,
+} from "./provider-session-import-contract.js";
+export {
   experimental_resolveClaudePluginRoots,
   experimental_resolveVendorPluginRoots,
   type ExperimentalClaudePluginRoots,

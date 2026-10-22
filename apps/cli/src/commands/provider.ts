@@ -4,10 +4,11 @@ import type {
   SystemExecutionOptionsModelLoadError,
   SystemProviderInfo,
 } from "@bb/server-contract";
-import { action } from "../action.js";
+import { action, CliExitError } from "../action.js";
+import { resolveLocalHostId } from "../daemon.js";
 import { createCliBbSdk } from "../client.js";
-import { columnWidths, printBorderlessTable } from "../table.js";
-import { outputJson } from "./helpers.js";
+import { columnWidths, printBorderlessTable, truncateCell } from "../table.js";
+import { collectOption, getErrorMessage, outputJson } from "./helpers.js";
 import { resolveMachineEnvironmentRouting } from "./machine.js";
 
 interface ProviderListCommandOptions {
@@ -25,6 +26,14 @@ interface ProviderModelsCommandOptions {
   machine?: string;
   project?: string;
   selectedModel?: string;
+}
+
+interface ProviderSessionsCommandOptions {
+  environment?: string;
+  host?: string;
+  json?: boolean;
+  machine?: string;
+  sourceKey?: string[];
 }
 
 interface IncludeSelectedOnlyModelArgs {
@@ -49,7 +58,7 @@ export function registerProviderCommands(
 ): void {
   const provider = program
     .command("provider")
-    .description("Manage providers and inspect their models");
+    .description("Manage providers, models and native sessions");
 
   addProviderRoutingOptions(provider.command("list"))
     .description("List available providers")
@@ -99,6 +108,120 @@ export function registerProviderCommands(
         }
         printProviderTable(providers);
       }),
+    );
+
+  addProviderRoutingOptions(provider.command("sessions <providerId>"))
+    .description(
+      "Discover native provider sessions on a machine (local by default)",
+    )
+    .option("--json", "Print machine-readable JSON output")
+    .action(
+      action(
+        async (providerId: string, opts: ProviderSessionsCommandOptions) => {
+          const serverUrl = getUrl();
+          const hostId = await resolveSessionHostId(opts, serverUrl);
+          const result = await createCliBbSdk(serverUrl).providers.listSessions(
+            {
+              providerId,
+              hostId,
+            },
+          );
+          if (outputJson(opts, result)) return;
+          if (result.sessions.length === 0) {
+            console.log("No sessions found");
+            return;
+          }
+          const rows = result.sessions.map((session) => [
+            session.sourceKey,
+            truncateCell(
+              session.name || session.firstMessage || session.sessionId,
+              60,
+            ),
+            session.cwd,
+            String(session.messageCount),
+          ]);
+          printBorderlessTable(
+            {
+              head: ["Source key", "Name", "Directory", "Messages"],
+              colWidths: columnWidths(rows, [10, 4, 9, 8]),
+            },
+            rows,
+          );
+        },
+      ),
+    );
+
+  addProviderRoutingOptions(provider.command("import-sessions <providerId>"))
+    .description("Import native provider sessions as threads (all by default)")
+    .option(
+      "--source-key <key>",
+      "Import only this source key (repeatable)",
+      (value: string, previous: string[] = []) =>
+        collectOption(value, previous),
+    )
+    .option("--json", "Print machine-readable JSON output")
+    .action(
+      action(
+        async (providerId: string, opts: ProviderSessionsCommandOptions) => {
+          const serverUrl = getUrl();
+          const sdk = createCliBbSdk(serverUrl);
+          const hostId = await resolveSessionHostId(opts, serverUrl);
+          const { sessions } = await sdk.providers.listSessions({
+            providerId,
+            hostId,
+          });
+          const availableKeys = new Set(
+            sessions.map((session) => session.sourceKey),
+          );
+          const sourceKeys = [...new Set(opts.sourceKey ?? availableKeys)];
+          const missing = sourceKeys.filter((key) => !availableKeys.has(key));
+          if (missing.length > 0) {
+            throw new Error(
+              `Sessions not found on this machine: ${missing.join(", ")}`,
+            );
+          }
+          const results = [];
+          let created = 0;
+          let skipped = 0;
+          let failed = 0;
+          if (!opts.json && sourceKeys.length > 0) {
+            console.error(
+              `Importing ${sourceKeys.length} sessions from ${providerId}…`,
+            );
+          }
+          for (const sourceKey of sourceKeys) {
+            try {
+              const result = await sdk.providers.importSession({
+                providerId,
+                hostId,
+                sourceKey,
+              });
+              results.push({ sourceKey, ...result });
+              if (result.created) created += 1;
+              else skipped += 1;
+              if (!opts.json)
+                console.log(
+                  `${result.created ? "Created" : "Existing"} thread ${result.threadId}`,
+                );
+            } catch (error) {
+              const message = getErrorMessage(error);
+              results.push({ sourceKey, error: message });
+              failed += 1;
+              if (!opts.json) console.error(`${sourceKey}: ${message}`);
+            }
+          }
+          if (!outputJson(opts, { results, created, skipped, failed })) {
+            console.log(
+              `${created} created, ${skipped} already imported, ${failed} failed`,
+            );
+          }
+          if (failed > 0)
+            throw new CliExitError(
+              `${failed} sessions could not be imported. Retry safely; existing threads are skipped.`,
+              1,
+            );
+        },
+      ),
     );
 
   for (const enabled of [true, false]) {
@@ -172,6 +295,21 @@ export function registerProviderCommands(
         },
       ),
     );
+}
+
+async function resolveSessionHostId(
+  opts: ProviderSessionsCommandOptions,
+  serverUrl: string,
+): Promise<string> {
+  const routing = await resolveMachineEnvironmentRouting(opts, serverUrl);
+  if (routing.environmentId !== undefined) {
+    return (
+      await createCliBbSdk(serverUrl).environments.get({
+        environmentId: routing.environmentId,
+      })
+    ).hostId;
+  }
+  return routing.hostId ?? (await resolveLocalHostId());
 }
 
 function includeSelectedOnlyModel(

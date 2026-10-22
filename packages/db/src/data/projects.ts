@@ -204,7 +204,7 @@ export function createProject(
 }
 
 export function findOrCreateProjectByLocalPathSource(
-  db: DbConnection,
+  db: DbQueryConnection,
   notifier: DbNotifier,
   input: CreateProjectInput,
 ) {

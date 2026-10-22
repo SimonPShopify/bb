@@ -343,6 +343,9 @@ Read the installed declarations for exact current signatures.
 - `experimental_nativeRootsHostContract`
 - `experimental_nativeRootsResolveInputSchema`
 - `experimental_nativeRootsResolveOutputSchema`
+- `experimental_providerSessionImportHostContract`
+- `experimental_providerSessionSchema`
+- `experimental_providerSessionTranscriptItemSchema`
 - `experimental_readProcessIdentity`
 - `experimental_resolveClaudePluginRoots`
 - `experimental_resolveVendorPluginRoots`
@@ -371,6 +374,10 @@ Read the installed declarations for exact current signatures.
 - `ExperimentalNativeRootsResolveInput`
 - `ExperimentalNativeRootsResolveOutput`
 - `ExperimentalProcessIdentity`
+- `ExperimentalProviderSession`
+- `ExperimentalProviderSessionImportHostContract`
+- `ExperimentalProviderSessionImportResult`
+- `ExperimentalProviderSessionTranscriptItem`
 - `ExperimentalQuestionFormHost`
 - `ExperimentalQuestionShortcut`
 - `ExperimentalSanitizeInheritedChildProcessEnvArgs`

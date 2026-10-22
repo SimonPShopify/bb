@@ -56,6 +56,39 @@ the failure code, and the underlying host message on stderr, then reports the
 empty catalog on stdout. The model pickers show the same underlying message
 beneath their summary line.
 
+Importing native sessions
+
+  bb provider sessions <providerId> [--machine <id-or-name> | --environment <id>] [--json]
+  bb provider import-sessions <providerId> [--machine <id-or-name> | --environment <id>]
+                              [--source-key <key>]... [--json]
+
+Pi supports discovering native sessions and importing their history into idle
+BB threads. Other providers must implement session import to use these commands.
+Unlike list/models, these commands default to the current local host daemon.
+Use --machine (or its --host alias) for another connected machine. --environment
+selects only its machine: discovery is machine-wide, not limited to that
+environment's directory. Machine and environment selectors cannot be combined.
+
+sessions prints source keys, titles, directories and message counts. import-sessions
+imports every discovered session by default; repeat --source-key to select only
+specific keys from sessions output. Imports create or reuse a local-path project
+and an unmanaged environment for each session's exact directory. No project
+navigation or active turn is required. Existing live imports return their thread
+IDs without changing history. An incompatible environment occupying that path is
+reported as an error rather than taken over.
+
+Human output shows progress, created/existing thread IDs and a summary.
+--json emits {sessions: [...]} for discovery, or
+{results: [{sourceKey, threadId, created} | {sourceKey, error}], created, skipped, failed}
+for import, without progress text. Individual failures do not stop the remaining
+imports; any failure exits nonzero. Retrying is safe because existing imports
+are skipped. Unknown --source-key values fail before importing anything.
+
+Settings → Providers → Import Pi sessions offers the same discovery and Import
+all action with a machine picker and result counts.
+SDK: providers.listSessions({providerId, hostId}) returns {sessions};
+providers.importSession({providerId, hostId, sourceKey}) returns {threadId, created}.
+
 Enabling and disabling providers
 
 Manage agents in Settings → Providers. Install provider plugins in Settings →

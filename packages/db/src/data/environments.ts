@@ -89,7 +89,7 @@ export function getEnvironment(db: EnvironmentReadConnection, id: string) {
 }
 
 export function findProjectEnvironmentByHostPath(
-  db: DbConnection,
+  db: EnvironmentReadConnection,
   projectId: string,
   hostId: string,
   path: string,

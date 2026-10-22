@@ -73,6 +73,10 @@ import {
   setProviderEnabled,
 } from "../services/system/provider-management.js";
 import { getProviderStates } from "../services/system/provider-states.js";
+import {
+  listProviderSessions,
+  importProviderSession,
+} from "../services/providers/session-import.js";
 import { getProviderUsageLimits } from "../services/system/usage-limits.js";
 import {
   listCustomThemeNames,
@@ -607,6 +611,23 @@ export function registerSystemRoutes(
 
   get(routes.providers, async (context, query) =>
     context.json(await listSystemProviderInfos(deps, query)),
+  );
+
+  get(routes.providerSessions, async (context, query) =>
+    context.json(
+      await listProviderSessions(deps, {
+        providerId: context.req.param("id"),
+        hostId: query.hostId,
+      }),
+    ),
+  );
+  post(routes.importProviderSession, async (context, payload) =>
+    context.json(
+      await importProviderSession(deps, {
+        providerId: context.req.param("id"),
+        ...payload,
+      }),
+    ),
   );
 
   get(routes.providerCatalog, async (context) => {

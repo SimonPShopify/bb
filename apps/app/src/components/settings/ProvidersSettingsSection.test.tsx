@@ -34,6 +34,22 @@ vi.mock("@/hooks/mutations/provider-mutations", () => ({
   useSetProviderEnabled: () => ({ mutate: mocks.setEnabled, isPending: false }),
 }));
 
+vi.mock("./ProviderSessionImportSection", () => ({
+  ProviderSessionImportSection: ({
+    providerId,
+    displayName,
+    disabled,
+  }: {
+    providerId: string;
+    displayName: string;
+    disabled: boolean;
+  }) => (
+    <button disabled={disabled} data-provider-id={providerId}>
+      Import {displayName} sessions
+    </button>
+  ),
+}));
+
 function render(ui: ReactElement) {
   return renderView(<MemoryRouter>{ui}</MemoryRouter>);
 }
@@ -333,6 +349,64 @@ describe("ProvidersSettingsSection", () => {
       providerId: "codex",
       enabled: false,
     });
+  });
+
+  it("offers Pi import from the enabled catalog even when Pi is not installed on the server machine", () => {
+    mocks.providers = [];
+    mocks.catalog = [
+      {
+        id: "pi",
+        displayName: "Pi",
+        pluginId: "provider-pi",
+        pluginName: "Pi provider",
+        enabled: true,
+        pluginEnabled: true,
+        available: false,
+        logoUrl: null,
+        info: null,
+      },
+    ];
+    render(
+      <ProvidersSettingsSection
+        disabled={false}
+        generalSettings={defaultAppSettings}
+        onGeneralSettingsChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Import Pi sessions" })
+        .getAttribute("data-provider-id"),
+    ).toBe("pi");
+  });
+
+  it.each([
+    { enabled: false, pluginEnabled: true },
+    { enabled: true, pluginEnabled: false },
+  ])("hides import when Pi or its plugin is disabled: %j", (availability) => {
+    mocks.providers = [provider("pi", "Pi")];
+    mocks.catalog = [
+      {
+        id: "pi",
+        displayName: "Pi",
+        pluginId: "provider-pi",
+        pluginName: "Pi provider",
+        ...availability,
+        available: false,
+        logoUrl: null,
+        info: null,
+      },
+    ];
+    render(
+      <ProvidersSettingsSection
+        disabled={false}
+        generalSettings={defaultAppSettings}
+        onGeneralSettingsChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Import Pi sessions" }),
+    ).toBeNull();
   });
 
   it("builds the complete picker order after a drag", () => {
